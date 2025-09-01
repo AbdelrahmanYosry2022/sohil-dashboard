@@ -4,6 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Progress } from '../components/ui/progress'
 import { EpisodeSidebar } from '../components/EpisodeSidebar'
 import TextTab from './tabs/TextTab'
+import AudioTab from './tabs/AudioTab'
+import DrawingTab from './tabs/DrawingTab'
+import AnimationTab from './tabs/AnimationTab'
+import EditingTab from './tabs/EditingTab'
 import {
   LayoutDashboard,
   FileText as FileTextIcon,
@@ -71,7 +75,11 @@ export default function EpisodeDetail() {
           <section className="space-y-6">
             {active === 'overview' && <OverviewSection />}
             {active === 'script' && <TextTab />}
-            {active !== 'overview' && active !== 'script' && (
+            {active === 'audio' && <AudioTab />}
+            {active === 'draw' && <DrawingTab />}
+            {active === 'animation' && <AnimationTab />}
+            {active === 'edit' && <EditingTab />}
+            {(active === 'final' || active === 'assets' || active === 'budget') && (
               <Card>
                 <CardHeader>
                   <CardTitle>
