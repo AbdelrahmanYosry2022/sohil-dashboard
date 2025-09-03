@@ -1,472 +1,608 @@
-import { useState } from 'react'
+import React, { useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
-import { Progress } from '../../components/ui/progress'
-import { 
-  PencilRuler, 
-  Image, 
-  Palette, 
-  Layers, 
-  Upload, 
-  Download, 
-  Eye, 
-  Edit3, 
-  Trash2, 
-  Plus, 
-  Clock, 
-  User, 
-  CheckCircle, 
-  AlertCircle, 
-  MoreHorizontal,
-  FileImage,
-  Brush,
-  Eraser,
-  Move,
-  RotateCw
+import {
+  Plus,
+  Grid3X3,
+  List,
+  FolderOpen,
+  ChevronLeft,
+  ArrowRight,
+  Camera,
+  MessageCircle,
+  MapPin,
+  ZoomOut,
+  ZoomIn
 } from 'lucide-react'
 
-interface DrawingAsset {
-  id: string
-  name: string
-  type: 'character' | 'background' | 'prop' | 'effect'
-  status: 'draft' | 'review' | 'approved' | 'revision'
-  progress: number
-  assignedTo: string
-  dueDate: Date
-  sceneIds: string[]
-  thumbnail?: string
-  notes?: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-interface DrawingScene {
+interface Scene {
   id: string
   title: string
-  status: 'not_started' | 'in_progress' | 'completed'
-  assets: string[]
-  complexity: 'simple' | 'medium' | 'complex'
-  estimatedHours: number
-  actualHours?: number
+  thumbnail: string
+  status: 'draft' | 'review' | 'changes' | 'approved'
+  shots: number
+  comments: number
+  lastUpdateISO: string
+}
+
+interface Folder {
+  id: string
+  name: string
+  order: number
+  scenes: Scene[]
+}
+
+interface Version {
+  id: string
+  name: string
+  createdAt: string
+  thumbnail: string
+  status: 'draft' | 'review' | 'changes' | 'approved'
+  notes?: string
+}
+
+interface Comment {
+  id: string
+  author: string
+  role: string
+  at: string
+  text: string
+  status: 'open' | 'resolved'
+  pin?: { xPct: number; yPct: number }
 }
 
 export default function DrawingTab() {
-  const [assets, setAssets] = useState<DrawingAsset[]>([
+  const [page, setPage] = useState('library') // 'library' | 'folder' | 'review'
+  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
+  
+  const [folders, setFolders] = useState<Folder[]>([
     {
-      id: '1',
-      name: 'الشخصية الرئيسية - وضعية الوقوف',
-      type: 'character',
-      status: 'approved',
-      progress: 100,
-      assignedTo: 'أحمد محمد',
-      dueDate: new Date('2024-02-15'),
-      sceneIds: ['1', '2', '3'],
-      notes: 'تم اعتماد التصميم النهائي',
-      createdAt: new Date('2024-01-10'),
-      updatedAt: new Date('2024-02-10')
+      id: 'f-01',
+      name: 'المقدمة – الحلقة 01',
+      order: 1,
+      scenes: [
+        {
+          id: 's-01',
+          title: 'المشهد 01 – الافتتاح',
+          thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
+          status: 'approved',
+          shots: 8,
+          comments: 0,
+          lastUpdateISO: '2025-08-24T10:00:00Z'
+        },
+        {
+          id: 's-02',
+          title: 'المشهد 02 – اكتشاف الكتاب',
+          thumbnail: 'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?q=80&w=800&auto=format&fit=crop',
+          status: 'review',
+          shots: 12,
+          comments: 3,
+          lastUpdateISO: '2025-08-26T12:30:00Z'
+        }
+      ]
     },
     {
-      id: '2',
-      name: 'خلفية المشهد الأول - الغابة',
-      type: 'background',
-      status: 'review',
-      progress: 85,
-      assignedTo: 'فاطمة علي',
-      dueDate: new Date('2024-02-20'),
-      sceneIds: ['1'],
-      notes: 'في انتظار مراجعة الألوان',
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-02-18')
-    },
-    {
-      id: '3',
-      name: 'الكتاب السحري - عنصر أساسي',
-      type: 'prop',
-      status: 'in_progress',
-      progress: 60,
-      assignedTo: 'محمد حسن',
-      dueDate: new Date('2024-02-25'),
-      sceneIds: ['2', '4'],
-      notes: 'يحتاج إضافة تفاصيل الزخارف',
-      createdAt: new Date('2024-01-20'),
-      updatedAt: new Date('2024-02-19')
+      id: 'f-02',
+      name: 'منتصف الحلقة – الأكشن',
+      order: 2,
+      scenes: [
+        {
+          id: 's-03',
+          title: 'المشهد 03 – التحوّل',
+          thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=800&auto=format&fit=crop',
+          status: 'changes',
+          shots: 16,
+          comments: 2,
+          lastUpdateISO: '2025-08-25T15:15:00Z'
+        }
+      ]
     }
   ])
-
-  const [scenes] = useState<DrawingScene[]>([
-    {
-      id: '1',
-      title: 'المشهد الأول: الافتتاحية',
-      status: 'completed',
-      assets: ['1', '2'],
-      complexity: 'medium',
-      estimatedHours: 12,
-      actualHours: 14
-    },
-    {
-      id: '2',
-      title: 'المشهد الثاني: اكتشاف الكتاب',
-      status: 'in_progress',
-      assets: ['1', '3'],
-      complexity: 'complex',
-      estimatedHours: 18,
-      actualHours: 8
-    },
-    {
-      id: '3',
-      title: 'المشهد الثالث: التحول',
-      status: 'not_started',
-      assets: ['1'],
-      complexity: 'complex',
-      estimatedHours: 20
+  
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
+  const [activeSceneId, setActiveSceneId] = useState<string | null>(null)
+  
+  // Helper functions
+  const createFolder = () => {
+    const newFolder: Folder = {
+      id: `f-${Date.now()}`,
+      name: `مجلد جديد ${folders.length + 1}`,
+      order: folders.length + 1,
+      scenes: []
     }
-  ])
-
-  const [selectedAsset, setSelectedAsset] = useState<DrawingAsset | null>(null)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-
-  const getStatusColor = (status: DrawingAsset['status']) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-500'
-      case 'review': return 'bg-yellow-500'
-      case 'approved': return 'bg-green-500'
-      case 'revision': return 'bg-red-500'
-      default: return 'bg-gray-500'
-    }
+    setFolders([...folders, newFolder])
+  }
+  
+  const renameFolder = (folderId: string, newName: string) => {
+    setFolders(folders.map(f => f.id === folderId ? { ...f, name: newName } : f))
+  }
+  
+  const reorderFolders = (fromIndex: number, toIndex: number) => {
+    const newFolders = [...folders]
+    const [moved] = newFolders.splice(fromIndex, 1)
+    newFolders.splice(toIndex, 0, moved)
+    setFolders(newFolders.map((f, i) => ({ ...f, order: i + 1 })))
+  }
+  
+  const moveScene = (sceneId: string, fromFolderId: string, toFolderId: string) => {
+    const fromFolder = folders.find(f => f.id === fromFolderId)
+    const scene = fromFolder?.scenes.find(s => s.id === sceneId)
+    if (!scene) return
+    
+    setFolders(folders.map(f => {
+      if (f.id === fromFolderId) {
+        return { ...f, scenes: f.scenes.filter(s => s.id !== sceneId) }
+      }
+      if (f.id === toFolderId) {
+        return { ...f, scenes: [...f.scenes, scene] }
+      }
+      return f
+    }))
+  }
+  
+  const openScene = (sceneId: string) => {
+    setActiveSceneId(sceneId)
+    setPage('review')
+  }
+  
+  const openFolder = (folderId: string) => {
+    setActiveFolderId(folderId)
+    setPage('folder')
+  }
+  
+  // Helper function for status badge
+  const getStatusBadge = (status: string) => {
+    const variant = status === 'approved' ? 'default' : status === 'review' ? 'outline' : status === 'changes' ? 'destructive' : 'secondary'
+    const label = status === 'draft' ? 'مسودة' : status === 'review' ? 'مراجعة' : status === 'changes' ? 'تعديلات' : status === 'approved' ? 'معتمد' : status
+    return <Badge variant={variant} className="text-xs">{label}</Badge>
   }
 
-  const getStatusIcon = (status: DrawingAsset['status']) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4" />
-      case 'revision': return <AlertCircle className="h-4 w-4" />
-      default: return <Clock className="h-4 w-4" />
-    }
-  }
 
-  const getTypeIcon = (type: DrawingAsset['type']) => {
-    switch (type) {
-      case 'character': return <User className="h-4 w-4" />
-      case 'background': return <Image className="h-4 w-4" />
-      case 'prop': return <FileImage className="h-4 w-4" />
-      case 'effect': return <Brush className="h-4 w-4" />
-      default: return <Image className="h-4 w-4" />
-    }
-  }
 
-  const totalAssets = assets.length
-  const completedAssets = assets.filter(a => a.status === 'approved').length
-  const overallProgress = totalAssets > 0 ? (completedAssets / totalAssets) * 100 : 0
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">إدارة الرسم</h1>
-          <p className="text-muted-foreground">تصميم وإدارة عناصر الرسم والشخصيات</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Upload className="h-4 w-4" />
-            رفع تصميم
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4" />
-            عنصر جديد
+  // Library Page Component
+  const LibraryPage = () => (
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">مكتبة المشاهد</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-muted rounded-lg p-1">
+            <Button
+               variant={viewMode === 'grid' ? 'default' : 'ghost'}
+               size="sm"
+               onClick={() => setViewMode('grid')}
+               className="h-8 w-8 p-0"
+             >
+               <Grid3X3 size={16} />
+             </Button>
+             <Button
+               variant={viewMode === 'list' ? 'default' : 'ghost'}
+               size="sm"
+               onClick={() => setViewMode('list')}
+               className="h-8 w-8 p-0"
+             >
+               <List size={16} />
+             </Button>
+          </div>
+          <Button
+            onClick={createFolder}
+            className="flex items-center gap-2"
+          >
+            <Plus size={16} />
+            مجلد جديد
           </Button>
         </div>
       </div>
-
-      {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">إجمالي العناصر</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalAssets}</div>
-            <p className="text-xs text-muted-foreground">عنصر رسم</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">العناصر المكتملة</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{completedAssets}</div>
-            <p className="text-xs text-muted-foreground">معتمد ومكتمل</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">قيد المراجعة</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {assets.filter(a => a.status === 'review').length}
-            </div>
-            <p className="text-xs text-muted-foreground">ينتظر الموافقة</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">التقدم العام</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Math.round(overallProgress)}%</div>
-            <Progress value={overallProgress} className="mt-2" />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Assets Grid */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <PencilRuler className="h-5 w-5" />
-                  عناصر الرسم
+      
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {folders.map((folder) => (
+            <Card
+              key={folder.id}
+              onClick={() => openFolder(folder.id)}
+              className="cursor-pointer hover:shadow-lg transition-all group"
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <FolderOpen className="text-primary" size={24} />
+                  <span className="text-sm text-muted-foreground">{folder.scenes.length} مشهد</span>
+                </div>
+                <CardTitle className="group-hover:text-primary transition-colors">
+                  {folder.name}
                 </CardTitle>
-                <div className="flex gap-2">
-                  <Button 
-                    variant={viewMode === 'grid' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                  >
-                    <Layers className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant={viewMode === 'list' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setViewMode('list')}
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex items-center gap-2">
+                  {folder.scenes.slice(0, 3).map((scene) => (
+                      <span key={scene.id}>{getStatusBadge(scene.status)}</span>
+                    ))}
+                  {folder.scenes.length > 3 && (
+                    <span className="text-xs text-muted-foreground">+{folder.scenes.length - 3}</span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+           <div className="space-y-4">
+             {folders.map((folder) => (
+               <Card
+                 key={folder.id}
+                 onClick={() => openFolder(folder.id)}
+                 className="cursor-pointer hover:shadow-md transition-all"
+               >
+                 <CardContent className="p-4">
+                   <div className="flex items-center gap-4">
+                     <FolderOpen className="text-primary" size={24} />
+                     <div className="flex-1">
+                       <h3 className="font-semibold mb-1">{folder.name}</h3>
+                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                         <span>{folder.scenes.length} مشهد</span>
+                         <div className="flex items-center gap-2">
+                           {folder.scenes.slice(0, 3).map((scene) => (
+                              <span key={scene.id}>{getStatusBadge(scene.status)}</span>
+                            ))}
+                           {folder.scenes.length > 3 && (
+                             <span className="text-xs text-muted-foreground">+{folder.scenes.length - 3}</span>
+                           )}
+                         </div>
+                       </div>
+                     </div>
+                     <ChevronLeft className="text-muted-foreground" size={20} />
+                   </div>
+                 </CardContent>
+               </Card>
+             ))}
+           </div>
+        )}
+    </div>
+  )
+  
+  // Folder Page Component
+  const FolderPage = () => {
+    const folder = folders.find(f => f.id === activeFolderId)
+    if (!folder) return null
+    
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => setPage('library')}
+            className="p-2 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowRight size={20} />
+          </Button>
+          <h1 className="text-2xl font-bold">{folder.name}</h1>
+          <span className="text-muted-foreground">({folder.scenes.length} مشهد)</span>
+        </div>
+        
+        <div className="flex items-center justify-between mb-6">
+          <div></div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-muted rounded-lg p-1">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="h-8 w-8 p-0"
+              >
+                <Grid3X3 size={16} />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8 w-8 p-0"
+              >
+                <List size={16} />
+              </Button>
+            </div>
+          </div>
+        </div>
+        
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {folder.scenes.map((scene) => (
+              <Card
+                key={scene.id}
+                onClick={() => openScene(scene.id)}
+                className="cursor-pointer hover:shadow-lg transition-all group overflow-hidden"
+              >
+                <div className="aspect-video bg-muted">
+                  <img
+                    src={scene.thumbnail}
+                    alt={scene.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  />
+                </div>
+                <CardContent className="p-4">
+                  <CardTitle className="mb-2 group-hover:text-primary transition-colors">
+                    {scene.title}
+                  </CardTitle>
+                  <div className="flex items-center justify-between mb-2">
+                    {getStatusBadge(scene.status)}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Camera size={14} />
+                      <span>{scene.shots}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <MessageCircle size={14} />
+                      <span>{scene.comments}</span>
+                    </div>
+                    <span>{new Date(scene.lastUpdateISO).toLocaleDateString('ar-SA')}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {folder.scenes.map((scene) => (
+              <Card
+                key={scene.id}
+                onClick={() => openScene(scene.id)}
+                className="cursor-pointer hover:shadow-md transition-all"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-muted rounded-lg overflow-hidden">
+                      <img
+                        src={scene.thumbnail}
+                        alt={scene.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">{scene.title}</h3>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                         {getStatusBadge(scene.status)}
+                        <div className="flex items-center gap-1">
+                          <Camera size={14} />
+                          <span>{scene.shots} لقطة</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MessageCircle size={14} />
+                          <span>{scene.comments} تعليق</span>
+                        </div>
+                        <span>آخر تحديث: {new Date(scene.lastUpdateISO).toLocaleDateString('ar-SA')}</span>
+                      </div>
+                    </div>
+                    <ChevronLeft className="text-muted-foreground" size={20} />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+  
+  // Review Page Component
+  const ReviewPage = () => {
+    const scene = folders.flatMap(f => f.scenes).find(s => s.id === activeSceneId)
+    if (!scene) return null
+    
+    const [versions] = useState<Version[]>([
+      {
+        id: 'v1',
+        name: 'الإصدار 1.0',
+        createdAt: '2025-08-24T10:00:00Z',
+        thumbnail: scene.thumbnail,
+        status: 'approved',
+        notes: 'الإصدار الأولي'
+      },
+      {
+        id: 'v2',
+        name: 'الإصدار 1.1',
+        createdAt: '2025-08-26T12:30:00Z',
+        thumbnail: scene.thumbnail,
+        status: 'review',
+        notes: 'تحديثات على الإضاءة'
+      }
+    ])
+    
+    const [comments] = useState<Comment[]>([
+      {
+        id: 'c1',
+        author: 'أحمد محمد',
+        role: 'مخرج',
+        at: '2025-08-26T14:30:00Z',
+        text: 'يحتاج تعديل في الإضاءة هنا',
+        status: 'open',
+        pin: { xPct: 45, yPct: 30 }
+      },
+      {
+        id: 'c2',
+        author: 'فاطمة علي',
+        role: 'مصممة',
+        at: '2025-08-26T15:00:00Z',
+        text: 'ممتاز! الألوان متناسقة',
+        status: 'resolved'
+      }
+    ])
+    
+    const [zoom, setZoom] = useState(100)
+    const [pan, setPan] = useState({ x: 0, y: 0 })
+    const viewerRef = useRef<HTMLDivElement>(null)
+    
+    return (
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <Card className="border-b border-border rounded-none">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage('folder')}
+                  className="p-2"
+                >
+                  <ChevronLeft size={20} />
+                </Button>
+                <h1 className="text-lg font-semibold">{scene.title}</h1>
+              </div>
+              <Button variant="outline" size="sm">
+                تحميل
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main Content */}
+        <div className="flex-1 flex" style={{ minHeight: '80vh' }}>
+          {/* Image Viewer */}
+          <div className="flex-1 bg-muted/30 relative">
+            <div className="h-full overflow-hidden relative bg-background" ref={viewerRef}>
+              <div
+                className="absolute inset-0 flex items-center justify-center"
+                style={{
+                  transform: `translate(${pan.x}px, ${pan.y}px)`
+                }}
+              >
+                <div className="relative">
+                  <img
+                    src={scene.thumbnail}
+                    alt={scene.title}
+                    className="max-w-none shadow-lg rounded-lg"
+                    style={{
+                      transform: `scale(${zoom / 100})`
+                    }}
+                  />
+                  {/* Comment Pins */}
+                  {comments.filter(c => c.pin).map((comment) => (
+                    <div
+                      key={comment.id}
+                      className="absolute w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold cursor-pointer hover:bg-primary/90 transition-colors shadow-md"
+                      style={{
+                        left: `${comment.pin!.xPct}%`,
+                        top: `${comment.pin!.yPct}%`,
+                        transform: 'translate(-50%, -50%)'
+                      }}
+                      title={comment.text}
+                    >
+                      <MessageCircle size={12} />
+                    </div>
+                  ))}
                 </div>
               </div>
+              
+              {/* Zoom Controls - Bottom Right */}
+              <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-background/90 backdrop-blur-sm rounded-lg p-2 shadow-lg">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setZoom(Math.max(25, zoom - 25))}
+                >
+                  <ZoomOut size={16} />
+                </Button>
+                <span className="text-sm text-muted-foreground min-w-[60px] text-center">{zoom}%</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setZoom(Math.min(200, zoom + 25))}
+                >
+                  <ZoomIn size={16} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setZoom(100); setPan({ x: 0, y: 0 }) }}
+                >
+                  إعادة تعيين
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Comments Panel - Right Side */}
+          <Card className="w-80 border-l border-border flex flex-col rounded-none">
+            <CardHeader className="border-b border-border">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">التعليقات</CardTitle>
+                <Button variant="ghost" size="sm">
+                  <Plus size={16} />
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
-              {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {assets.map((asset) => (
-                    <div key={asset.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          {getTypeIcon(asset.type)}
-                          <div>
-                            <h4 className="font-medium text-sm">{asset.name}</h4>
-                            <p className="text-xs text-muted-foreground">
-                              {asset.type === 'character' && 'شخصية'}
-                              {asset.type === 'background' && 'خلفية'}
-                              {asset.type === 'prop' && 'عنصر'}
-                              {asset.type === 'effect' && 'تأثير'}
-                            </p>
-                          </div>
-                        </div>
-                        <Badge 
-                          variant="secondary" 
-                          className={`${getStatusColor(asset.status)} text-white text-xs`}
-                        >
-                          {getStatusIcon(asset.status)}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span>التقدم</span>
-                          <span>{asset.progress}%</span>
-                        </div>
-                        <Progress value={asset.progress} />
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>المسؤول: {asset.assignedTo}</span>
-                        <span>المشاهد: {asset.sceneIds.length}</span>
-                      </div>
-                      
-                      {asset.notes && (
-                        <p className="text-xs bg-muted/50 p-2 rounded">{asset.notes}</p>
-                      )}
-                      
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Edit3 className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {assets.map((asset) => (
-                    <div key={asset.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        {getTypeIcon(asset.type)}
+            <CardContent className="flex-1 p-4 overflow-y-auto">
+              <div className="space-y-3">
+                {comments.map((comment) => (
+                  <Card key={comment.id} className="bg-muted/50">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-2">
                         <div>
-                          <h4 className="font-medium text-sm">{asset.name}</h4>
-                          <p className="text-xs text-muted-foreground">{asset.assignedTo}</p>
+                          <div className="font-medium text-sm">{comment.author}</div>
+                          <div className="text-xs text-muted-foreground">{comment.role}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {comment.pin && (
+                            <MapPin size={12} className="text-primary" />
+                          )}
+                          <Badge variant={comment.status === 'open' ? 'destructive' : 'default'} className="text-xs">
+                            {comment.status === 'open' ? 'مفتوح' : 'محلول'}
+                          </Badge>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <div className="w-24">
-                          <Progress value={asset.progress} />
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {asset.status}
-                        </Badge>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Edit3 className="h-3 w-3" />
-                          </Button>
-                        </div>
+                      <p className="text-sm">{comment.text}</p>
+                      <div className="text-xs text-muted-foreground mt-2">
+                        {new Date(comment.at).toLocaleString('ar-SA')}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Scenes Progress */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers className="h-5 w-5" />
-                تقدم المشاهد
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {scenes.map((scene) => (
-                <div key={scene.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-medium">{scene.title}</h4>
-                    <Badge 
-                      variant={scene.status === 'completed' ? 'default' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {scene.status === 'completed' && 'مكتمل'}
-                      {scene.status === 'in_progress' && 'قيد العمل'}
-                      {scene.status === 'not_started' && 'لم يبدأ'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">العناصر: </span>
-                      <span className="font-medium">{scene.assets.length}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">التعقيد: </span>
-                      <span className="font-medium">
-                        {scene.complexity === 'simple' && 'بسيط'}
-                        {scene.complexity === 'medium' && 'متوسط'}
-                        {scene.complexity === 'complex' && 'معقد'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">الساعات: </span>
-                      <span className="font-medium">
-                        {scene.actualHours || 0}/{scene.estimatedHours}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Drawing Tools */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Palette className="h-4 w-4" />
-                أدوات الرسم
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Brush className="h-4 w-4" />
-                فرشاة الرسم
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Eraser className="h-4 w-4" />
-                ممحاة
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Move className="h-4 w-4" />
-                أداة التحريك
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <RotateCw className="h-4 w-4" />
-                أداة الدوران
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Asset Types */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">أنواع العناصر</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[
-                { type: 'character', count: assets.filter(a => a.type === 'character').length, label: 'الشخصيات' },
-                { type: 'background', count: assets.filter(a => a.type === 'background').length, label: 'الخلفيات' },
-                { type: 'prop', count: assets.filter(a => a.type === 'prop').length, label: 'العناصر' },
-                { type: 'effect', count: assets.filter(a => a.type === 'effect').length, label: 'التأثيرات' }
-              ].map((item) => (
-                <div key={item.type} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{item.label}:</span>
-                  <span className="font-medium">{item.count}</span>
-                </div>
+        {/* Versions Section - Full Width Below */}
+        <Card className="border-t border-border rounded-none">
+          <CardHeader className="border-b border-border">
+            <CardTitle className="text-lg">الإصدارات</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {versions.map((version) => (
+                <Card key={version.id} className="cursor-pointer hover:bg-accent transition-colors">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden">
+                        <img src={version.thumbnail} alt={version.name} className="w-full h-full object-cover" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{version.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(version.createdAt).toLocaleDateString('ar-SA')}
+                        </div>
+                      </div>
+                      <Badge variant={version.status === 'approved' ? 'default' : version.status === 'review' ? 'secondary' : version.status === 'changes' ? 'destructive' : 'outline'}>
+                        {version.status === 'draft' ? 'مسودة' : version.status === 'review' ? 'مراجعة' : version.status === 'changes' ? 'تعديلات' : 'معتمد'}
+                      </Badge>
+                    </div>
+                    {version.notes && (
+                      <p className="text-xs text-muted-foreground mt-2">{version.notes}</p>
+                    )}
+                  </CardContent>
+                </Card>
               ))}
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">إجراءات سريعة</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Download className="h-4 w-4" />
-                تصدير جميع العناصر
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Upload className="h-4 w-4" />
-                استيراد مكتبة
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Eye className="h-4 w-4" />
-                معاينة المشروع
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+    )
+  }
+  
+  return (
+    <div className="h-full bg-background">
+      {page === 'library' && <LibraryPage />}
+      {page === 'folder' && <FolderPage />}
+      {page === 'review' && <ReviewPage />}
     </div>
   )
 }
