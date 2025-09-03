@@ -2,6 +2,9 @@ import React, { useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
+import { Input } from '../../components/ui/input'
+import { Textarea } from '../../components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
 import {
   Plus,
   Grid3X3,
@@ -13,7 +16,10 @@ import {
   MessageCircle,
   MapPin,
   ZoomOut,
-  ZoomIn
+  ZoomIn,
+  Edit,
+  Trash2,
+  MoreHorizontal
 } from 'lucide-react'
 
 interface Scene {
@@ -103,15 +109,55 @@ export default function DrawingTab() {
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null)
   
+  // Dialog states
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
+  const [newFolderName, setNewFolderName] = useState('')
+  
   // Helper functions
   const createFolder = () => {
+    setNewFolderName('')
+    setIsCreateDialogOpen(true)
+  }
+  
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+    
     const newFolder: Folder = {
-      id: `f-${Date.now()}`,
-      name: `مجلد جديد ${folders.length + 1}`,
-      order: folders.length + 1,
+      id: `folder-${Date.now()}`,
+      name: newFolderName.trim(),
+      order: folders.length,
       scenes: []
     }
     setFolders([...folders, newFolder])
+    setIsCreateDialogOpen(false)
+    setNewFolderName('')
+  }
+  
+  const handleEditFolder = (folder: Folder) => {
+    setEditingFolder(folder)
+    setNewFolderName(folder.name)
+    setIsEditDialogOpen(true)
+  }
+  
+  const handleUpdateFolder = () => {
+    if (!editingFolder || !newFolderName.trim()) return
+    
+    setFolders(folders.map(folder => 
+      folder.id === editingFolder.id 
+        ? { ...folder, name: newFolderName.trim() }
+        : folder
+    ))
+    setIsEditDialogOpen(false)
+    setEditingFolder(null)
+    setNewFolderName('')
+  }
+  
+  const handleDeleteFolder = (folderId: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا المجلد؟ سيتم حذف جميع المشاهد بداخله.')) {
+      setFolders(folders.filter(folder => folder.id !== folderId))
+    }
   }
   
   const renameFolder = (folderId: string, newName: string) => {
@@ -199,62 +245,99 @@ export default function DrawingTab() {
           {folders.map((folder) => (
             <Card
               key={folder.id}
-              onClick={() => openFolder(folder.id)}
-              className="cursor-pointer hover:shadow-lg transition-all group"
+              className="cursor-pointer hover:shadow-lg transition-all group relative"
             >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between mb-2">
-                  <FolderOpen className="text-primary" size={24} />
-                  <span className="text-sm text-muted-foreground">{folder.scenes.length} مشهد</span>
-                </div>
-                <CardTitle className="group-hover:text-primary transition-colors">
-                  {folder.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex items-center gap-2">
-                  {folder.scenes.slice(0, 3).map((scene) => (
-                      <span key={scene.id}>{getStatusBadge(scene.status)}</span>
-                    ))}
-                  {folder.scenes.length > 3 && (
-                    <span className="text-xs text-muted-foreground">+{folder.scenes.length - 3}</span>
-                  )}
-                </div>
-              </CardContent>
+              <div onClick={() => openFolder(folder.id)}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between mb-3">
+                    <FolderOpen className="text-primary mt-1" size={24} />
+                    <span className="text-sm text-muted-foreground">{folder.scenes.length} مشهد</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="group-hover:text-primary transition-colors text-right leading-tight">
+                        {folder.name}
+                      </CardTitle>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mr-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-background"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditFolder(folder)
+                          }}
+                        >
+                          <Edit size={12} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteFolder(folder.id)
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+
+              </div>
             </Card>
           ))}
         </div>
       ) : (
-           <div className="space-y-4">
-             {folders.map((folder) => (
-               <Card
-                 key={folder.id}
-                 onClick={() => openFolder(folder.id)}
-                 className="cursor-pointer hover:shadow-md transition-all"
-               >
-                 <CardContent className="p-4">
-                   <div className="flex items-center gap-4">
-                     <FolderOpen className="text-primary" size={24} />
-                     <div className="flex-1">
-                       <h3 className="font-semibold mb-1">{folder.name}</h3>
-                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                         <span>{folder.scenes.length} مشهد</span>
-                         <div className="flex items-center gap-2">
-                           {folder.scenes.slice(0, 3).map((scene) => (
-                              <span key={scene.id}>{getStatusBadge(scene.status)}</span>
-                            ))}
-                           {folder.scenes.length > 3 && (
-                             <span className="text-xs text-muted-foreground">+{folder.scenes.length - 3}</span>
-                           )}
+          <div className="space-y-4">
+            {folders.map((folder) => (
+              <Card
+                key={folder.id}
+                className="hover:shadow-md transition-all group"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <FolderOpen className="text-primary flex-shrink-0" size={24} />
+                    <div className="flex-1 cursor-pointer" onClick={() => openFolder(folder.id)}>
+                       <div className="flex items-start justify-between mb-2">
+                         <h3 className="font-semibold text-right leading-tight">{folder.name}</h3>
+                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mr-3">
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             className="h-6 w-6 p-0"
+                             onClick={(e) => {
+                               e.stopPropagation()
+                               handleEditFolder(folder)
+                             }}
+                           >
+                             <Edit size={12} />
+                           </Button>
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                             onClick={(e) => {
+                               e.stopPropagation()
+                               handleDeleteFolder(folder.id)
+                             }}
+                           >
+                             <Trash2 size={12} />
+                           </Button>
                          </div>
                        </div>
+                       <div className="text-sm text-muted-foreground mb-3 text-right">{folder.scenes.length} مشهد</div>
                      </div>
-                     <ChevronLeft className="text-muted-foreground" size={20} />
-                   </div>
-                 </CardContent>
-               </Card>
-             ))}
-           </div>
+                     <div className="flex items-center gap-2 flex-shrink-0">
+                       <ChevronLeft className="text-muted-foreground" size={20} />
+                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
     </div>
   )
@@ -603,6 +686,66 @@ export default function DrawingTab() {
       {page === 'library' && <LibraryPage />}
       {page === 'folder' && <FolderPage />}
       {page === 'review' && <ReviewPage />}
+      
+      {/* Create Folder Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent onClose={() => setIsCreateDialogOpen(false)}>
+          <DialogHeader>
+            <DialogTitle>إنشاء مجلد جديد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">اسم المجلد</label>
+              <Input
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="أدخل اسم المجلد"
+                className="w-full"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                إلغاء
+              </Button>
+              <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+                إنشاء المجلد
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Folder Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent onClose={() => setIsEditDialogOpen(false)}>
+          <DialogHeader>
+            <DialogTitle>تعديل المجلد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">اسم المجلد</label>
+              <Input
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="أدخل اسم المجلد"
+                className="w-full"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                إلغاء
+              </Button>
+              <Button onClick={handleUpdateFolder} disabled={!newFolderName.trim()}>
+                حفظ التغييرات
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

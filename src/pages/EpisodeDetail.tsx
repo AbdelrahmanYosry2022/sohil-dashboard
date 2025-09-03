@@ -1,10 +1,12 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
+import { Button } from '../components/ui/button'
 import { EpisodeSidebar } from '../components/EpisodeSidebar'
 import TextTab from './tabs/TextTab'
 import AudioTab from './tabs/AudioTab'
+import StoryboardTab from './tabs/StoryboardTab'
 import DrawingTab from './tabs/DrawingTab'
 import AnimationTab from './tabs/AnimationTab'
 import EditingTab from './tabs/EditingTab'
@@ -12,20 +14,25 @@ import {
   LayoutDashboard,
   FileText as FileTextIcon,
   AudioLines,
+  Layers,
   PencilRuler,
   Clapperboard,
   Scissors,
   Film,
   Folder,
   Wallet,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react'
 import { EpisodeDetailHeader } from '../components/EpisodeDetailHeader'
-// lucide-react icons will be used for sidebar tabs
+import { episodeOperations } from '../lib/supabase'
+import { Episode } from '../lib/types'
 
 type TabKey =
   | 'overview'
   | 'script'
   | 'audio'
+  | 'storyboard'
   | 'draw'
   | 'animation'
   | 'edit'
@@ -37,6 +44,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?
   { key: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
   { key: 'script', label: 'النص', icon: FileTextIcon },
   { key: 'audio', label: 'الصوت', icon: AudioLines },
+  { key: 'storyboard', label: 'الستوري بورد', icon: Layers },
   { key: 'draw', label: 'الرسم', icon: PencilRuler },
   { key: 'animation', label: 'التحريك', icon: Clapperboard },
   { key: 'edit', label: 'المونتاج', icon: Scissors },
@@ -49,8 +57,78 @@ export default function EpisodeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [active, setActive] = useState<TabKey>('overview')
+  const [episode, setEpisode] = useState<Episode | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const title = useMemo(() => `حلقة ${id}`, [id])
+  useEffect(() => {
+    if (id) {
+      loadEpisode(id)
+    }
+  }, [id])
+
+  const loadEpisode = async (episodeId: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await episodeOperations.getById(episodeId)
+      setEpisode(data)
+    } catch (err) {
+      console.error('Error loading episode:', err)
+      setError('فشل في تحميل بيانات الحلقة. يرجى المحاولة مرة أخرى.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const title = useMemo(() => {
+    if (episode) {
+      return episode.title
+    }
+    return `حلقة ${id}`
+  }, [episode, id])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <EpisodeDetailHeader
+          title="جاري التحميل..."
+          onHome={() => navigate('/')}
+          onEpisodes={() => navigate('/episodes')}
+        />
+        <main className="container py-8 space-y-6">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="mr-2">جاري تحميل بيانات الحلقة...</span>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (error || !episode) {
+    return (
+      <div className="min-h-screen bg-background">
+        <EpisodeDetailHeader
+          title="خطأ"
+          onHome={() => navigate('/')}
+          onEpisodes={() => navigate('/episodes')}
+        />
+        <main className="container py-8 space-y-6">
+          <div className="text-center py-12">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-red-500 mb-4">{error || 'الحلقة غير موجودة'}</p>
+            <div className="space-x-2">
+              <Button onClick={() => id && loadEpisode(id)}>إعادة المحاولة</Button>
+              <Button variant="outline" onClick={() => navigate('/episodes')}>
+                العودة لقائمة الحلقات
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,9 +151,10 @@ export default function EpisodeDetail() {
 
           {/* Content */}
           <section className="space-y-6">
-            {active === 'overview' && <OverviewSection />}
+            {active === 'overview' && <OverviewSection episode={episode} />}
             {active === 'script' && <TextTab />}
             {active === 'audio' && <AudioTab />}
+            {active === 'storyboard' && <StoryboardTab />}
             {active === 'draw' && <DrawingTab />}
             {active === 'animation' && <AnimationTab />}
             {active === 'edit' && <EditingTab />}
@@ -101,13 +180,18 @@ export default function EpisodeDetail() {
   )
 }
 
-function OverviewSection() {
-  // بيانات مثال للوحة النظرة العامة
+function OverviewSection({ episode }: { episode: Episode }) {
+  // حساب الإحصائيات بناءً على بيانات الحلقة
   const stats = [
-    { title: 'نسبة إنجاز الحلقة', value: 72, hint: 'الهدف 100%' },
-    { title: 'عدد المشاهد', value: 28, hint: '+3 هذا الأسبوع' },
-    { title: 'مدة العمل المتبقية', value: '5 أيام', hint: 'حسب الخطة' },
-    { title: 'الميزانية المصروفة', value: '65%', hint: 'ضمن النطاق' },
+    {
+      title: 'حالة الحلقة',
+      value: episode.status === 'completed' ? 'مكتملة' :
+             episode.status === 'in_progress' ? 'قيد التنفيذ' : 'مسودة',
+      hint: `تم الإنشاء ${new Date(episode.created_at).toLocaleDateString('ar-EG')}`
+    },
+    { title: 'عدد المشاهد', value: 0, hint: 'لم يتم تحديدها بعد' },
+    { title: 'المدة المتوقعة', value: '--:--', hint: 'لم يتم تحديدها بعد' },
+    { title: 'آخر تحديث', value: new Date(episode.updated_at).toLocaleDateString('ar-EG'), hint: 'تاريخ آخر تعديل' },
   ]
 
   return (

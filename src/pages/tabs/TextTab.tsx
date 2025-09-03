@@ -184,6 +184,10 @@ export default function TextTab() {
               نص الحلقة
             </CardTitle>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">
+                <Upload className="h-4 w-4" />
+                استيراد ملف
+              </Button>
               <Button variant="outline" size="sm" onClick={saveContent}>
                 <Save className="h-4 w-4" />
                 حفظ
@@ -197,8 +201,8 @@ export default function TextTab() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3 space-y-6">
+      <div className="grid grid-cols-1 gap-6">
+        <div className="space-y-6">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -272,6 +276,14 @@ export default function TextTab() {
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => deleteScene(currentSceneIndex)} disabled={scenes.length <= 1}>
                     <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Undo className="h-4 w-4" />
+                    تراجع
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Redo className="h-4 w-4" />
+                    إعادة
                   </Button>
                   <Button variant={isPreview ? 'default' : 'outline'} size="sm" onClick={() => setIsPreview(!isPreview)}>
                     {isPreview ? <Edit3 className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -349,81 +361,7 @@ export default function TextTab() {
           </Card>
         </div>
 
-        <div className="lg:col-span-1 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                إحصائيات المشهد الحالي
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">عدد الكلمات:</span>
-                <span className="font-medium">{stats.words}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">عدد الأحرف:</span>
-                <span className="font-medium">{stats.characters}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">الوقت المقدر:</span>
-                <span className="font-medium">{stats.estimatedMinutes} دقيقة</span>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                إحصائيات الحلقة الكاملة
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">عدد المشاهد:</span>
-                <span className="font-medium">{totalStats.scenes}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">إجمالي الكلمات:</span>
-                <span className="font-medium">{totalStats.words}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">إجمالي الأحرف:</span>
-                <span className="font-medium">{totalStats.characters}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">الوقت الإجمالي:</span>
-                <span className="font-medium">{totalStats.estimatedMinutes} دقيقة</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">إجراءات سريعة</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Upload className="h-4 w-4" />
-                استيراد ملف
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <FileText className="h-4 w-4" />
-                قالب جديد
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Undo className="h-4 w-4" />
-                تراجع
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Redo className="h-4 w-4" />
-                إعادة
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   )

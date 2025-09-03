@@ -1,82 +1,152 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
 import { Header } from '../components/ui/header'
-
-// نموذج بيانات مؤقت للحلقات
-const episodes = [
-  {
-    id: 'ep-01',
-    name: 'الحلقة 1: البداية',
-    summary: 'مقدمة الشخصيات وبداية القصة',
-    progress: 65,
-    scenes: 24,
-    duration: '12:30',
-    status: 'في المونتاج',
-  },
-  {
-    id: 'ep-02',
-    name: 'الحلقة 2: التحدّي',
-    summary: 'بناء الصراع وارتفاع الإيقاع',
-    progress: 40,
-    scenes: 28,
-    duration: '13:05',
-    status: 'تحريك',
-  },
-  {
-    id: 'ep-03',
-    name: 'الحلقة 3: المواجهة',
-    summary: 'مشاهد الحركة الرئيسية',
-    progress: 20,
-    scenes: 30,
-    duration: '14:10',
-    status: 'ستوري بورد',
-  },
-  {
-    id: 'ep-04',
-    name: 'الحلقة 4: الحل',
-    summary: 'حل العقدة ونهاية الآرك',
-    progress: 85,
-    scenes: 22,
-    duration: '12:55',
-    status: 'تصحيح ألوان',
-  },
-]
+import { Button } from '../components/ui/button'
+import { episodeOperations } from '../lib/supabase'
+import { Episode } from '../lib/types'
+import { Plus, Loader2 } from 'lucide-react'
 
 export default function Episodes() {
+  const [episodes, setEpisodes] = useState<Episode[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadEpisodes()
+  }, [])
+
+  const loadEpisodes = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await episodeOperations.getAll()
+      setEpisodes(data)
+    } catch (err) {
+      console.error('Error loading episodes:', err)
+      setError('فشل في تحميل الحلقات. يرجى المحاولة مرة أخرى.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getStatusLabel = (status: Episode['status']) => {
+    switch (status) {
+      case 'draft':
+        return 'مسودة'
+      case 'in_progress':
+        return 'قيد التنفيذ'
+      case 'completed':
+        return 'مكتملة'
+      default:
+        return status
+    }
+  }
+
+  const getStatusColor = (status: Episode['status']) => {
+    switch (status) {
+      case 'draft':
+        return 'text-gray-500'
+      case 'in_progress':
+        return 'text-blue-500'
+      case 'completed':
+        return 'text-green-500'
+      default:
+        return 'text-gray-500'
+    }
+  }
+
+  const calculateProgress = (episode: Episode) => {
+    // هنا يمكن حساب التقدم بناءً على المحتوى المرتبط بالحلقة
+    // للآن سنعرض تقدماً عشوائياً مؤقتاً
+    return Math.floor(Math.random() * 100)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8 space-y-6">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="mr-2">جاري تحميل الحلقات...</span>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-8 space-y-6">
+          <div className="text-center py-12">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={loadEpisodes}>إعادة المحاولة</Button>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
       <main className="container py-8 space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">قائمة الحلقات</h1>
-          <p className="text-muted-foreground">تصفح الحلقات واضغط على أي حلقة لفتح لوحة التحكم الخاصة بها</p>
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight">قائمة الحلقات</h1>
+            <p className="text-muted-foreground">تصفح الحلقات واضغط على أي حلقة لفتح لوحة التحكم الخاصة بها</p>
+          </div>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            إضافة حلقة جديدة
+          </Button>
         </div>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {episodes.map((ep) => (
-            <Link to={`/episodes/${ep.id}`} key={ep.id} className="block group">
-              <Card className="transition-colors hover:bg-accent">
-                <CardHeader>
-                  <CardTitle className="text-base">{ep.name}</CardTitle>
-                  <CardDescription className="truncate">{ep.summary}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>المشاهد: {ep.scenes}</span>
-                    <span>المدة: {ep.duration}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">الحالة: {ep.status}</span>
-                    <span className="font-medium">{ep.progress}%</span>
-                  </div>
-                  <Progress value={ep.progress} />
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </section>
+        {episodes.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground mb-4">لا توجد حلقات بعد</p>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              إنشاء أول حلقة
+            </Button>
+          </div>
+        ) : (
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {episodes.map((episode) => {
+              const progress = calculateProgress(episode)
+              return (
+                <Link to={`/episodes/${episode.id}`} key={episode.id} className="block group">
+                  <Card className="transition-colors hover:bg-accent">
+                    <CardHeader>
+                      <CardTitle className="text-base">{episode.title}</CardTitle>
+                      <CardDescription className="truncate">
+                        {episode.description || 'لا يوجد وصف'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>المشاهد: 0</span>
+                        <span>المدة: --:--</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={`font-medium ${getStatusColor(episode.status)}`}>
+                          {getStatusLabel(episode.status)}
+                        </span>
+                        <span className="font-medium">{progress}%</span>
+                      </div>
+                      <Progress value={progress} />
+                    </CardContent>
+                  </Card>
+                </Link>
+              )
+            })}
+          </section>
+        )}
       </main>
     </div>
   )
