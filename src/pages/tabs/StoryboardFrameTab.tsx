@@ -319,30 +319,27 @@ export default function StoryboardFrameTab() {
         />
       </div>
 
-      {/* Main Content with Fixed Sidebar (centered container) */}
-      <div className="flex-1">
-        <div className="container mx-auto flex">
-          {/* Fixed Sidebar */}
-          <aside className="w-[260px] shrink-0">
-            <div className="sticky top-[80px] h-[calc(100vh-80px)] overflow-y-auto">
-              <div className="p-4">
-                <EpisodeSidebar
-                  items={TABS}
-                  active={activeSidebarTab}
-                  onChange={(k) => {
-                    setActiveSidebarTab(k)
-                    if (k !== 'storyboard') {
-                      navigate(`/episodes/${episodeId}`)
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </aside>
+      {/* Main Content with Fixed Sidebar */}
+      <div className="flex-1 flex">
+        {/* Fixed Sidebar */}
+        <div className="sticky top-[80px] h-[calc(100vh-80px)] overflow-y-auto">
+          <div className="w-[260px] p-4">
+            <EpisodeSidebar
+              items={TABS}
+              active={activeSidebarTab}
+              onChange={(k) => {
+                setActiveSidebarTab(k)
+                if (k !== 'storyboard') {
+                  navigate(`/episodes/${episodeId}`)
+                }
+              }}
+            />
+          </div>
+        </div>
 
-          {/* Scrollable Content with 80% width */}
-          <main className="flex-1 overflow-y-auto">
-            <div className="max-w-7xl w-full mx-auto p-6">
+        {/* Scrollable Content with 80% width */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl w-full mx-auto p-6">
             {/* Frame Toolbar (no Card frame) */}
             <div className="mb-6 p-4">
               <div className="flex items-center justify-between">
@@ -533,9 +530,8 @@ export default function StoryboardFrameTab() {
                 </div>
               </CardContent>
             </Card>
-            </div>
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
 
       {/* Edit Frame Modal */}

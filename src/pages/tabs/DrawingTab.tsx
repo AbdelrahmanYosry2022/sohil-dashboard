@@ -1,752 +1,454 @@
-import React, { useState, useMemo, useRef } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Input } from '../../components/ui/input'
-import { Textarea } from '../../components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
-import { UnifiedModal } from '../../components/ui/unified-modal'
-import {
-  Plus,
-  Grid3X3,
-  List,
-  FolderOpen,
-  ChevronLeft,
-  ArrowRight,
-  Camera,
-  MessageCircle,
-  MapPin,
-  ZoomOut,
-  ZoomIn,
-  Edit,
-  Trash2,
-  MoreHorizontal
+import React from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { 
+  Plus, 
+  Grid3X3, 
+  List, 
+  FolderPlus, 
+  Edit, 
+  Trash2, 
+  ArrowLeft, 
+  Download, 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCcw, 
+  MessageCircle, 
+  Clock, 
+  Eye, 
+  Camera 
 } from 'lucide-react'
-import TabHeader from '../../components/TabHeader'
+import { useDrawingTab } from '@/hooks/useDrawingTab'
 
-interface Scene {
-  id: string
-  title: string
-  thumbnail: string
-  status: 'draft' | 'review' | 'changes' | 'approved'
-  shots: number
-  comments: number
-  lastUpdateISO: string
-}
-
-interface Folder {
-  id: string
-  name: string
-  order: number
-  scenes: Scene[]
-}
-
-interface Version {
-  id: string
-  name: string
-  createdAt: string
-  thumbnail: string
-  status: 'draft' | 'review' | 'changes' | 'approved'
-  notes?: string
-}
-
-interface Comment {
-  id: string
-  author: string
-  role: string
-  at: string
-  text: string
-  status: 'open' | 'resolved'
-  pin?: { xPct: number; yPct: number }
-}
-
-export default function DrawingTab() {
-  const [page, setPage] = useState('library') // 'library' | 'folder' | 'review'
-  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
-  
-  const [folders, setFolders] = useState<Folder[]>([
-    {
-      id: 'f-01',
-      name: 'المقدمة – الحلقة 01',
-      order: 1,
-      scenes: [
-        {
-          id: 's-01',
-          title: 'المشهد 01 – الافتتاح',
-          thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
-          status: 'approved',
-          shots: 8,
-          comments: 0,
-          lastUpdateISO: '2025-08-24T10:00:00Z'
-        },
-        {
-          id: 's-02',
-          title: 'المشهد 02 – اكتشاف الكتاب',
-          thumbnail: 'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?q=80&w=800&auto=format&fit=crop',
-          status: 'review',
-          shots: 12,
-          comments: 3,
-          lastUpdateISO: '2025-08-26T12:30:00Z'
-        }
-      ]
-    },
-    {
-      id: 'f-02',
-      name: 'منتصف الحلقة – الأكشن',
-      order: 2,
-      scenes: [
-        {
-          id: 's-03',
-          title: 'المشهد 03 – التحوّل',
-          thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=800&auto=format&fit=crop',
-          status: 'changes',
-          shots: 16,
-          comments: 2,
-          lastUpdateISO: '2025-08-25T15:15:00Z'
-        }
-      ]
-    }
-  ])
-  
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
-  const [activeSceneId, setActiveSceneId] = useState<string | null>(null)
-  
-  // Dialog states
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
-  const [newFolderName, setNewFolderName] = useState('')
-  
-  // Modal states
-  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
-  const [isSceneModalOpen, setIsSceneModalOpen] = useState(false)
-  
-  // Helper functions
-  const createFolder = () => {
-    setIsFolderModalOpen(true)
-  }
-  
-  const handleCreateFolder = (data: { name: string; description?: string }) => {
-    const newFolder: Folder = {
-      id: `folder-${Date.now()}`,
-      name: data.name,
-      order: folders.length,
-      scenes: []
-    }
-    setFolders([...folders, newFolder])
-  }
-  
-  // Scene management functions
-  const handleCreateScene = (data: { name: string; description?: string }) => {
-    if (!activeFolderId) return
+const DrawingTab = () => {
+  const {
+    // State
+    page,
+    viewMode,
+    folders,
+    activeFolderId,
+    activeSceneId,
+    isCreateDialogOpen,
+    isEditDialogOpen,
+    editingFolder,
+    newFolderName,
+    isFolderModalOpen,
+    isSceneModalOpen,
+    zoom,
+    pan,
+    viewerRef,
+    versions,
+    comments,
+    currentFolder,
+    currentScene,
     
-    const newScene: Scene = {
-      id: `scene-${Date.now()}`,
-      title: data.name,
-      thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
-      status: 'draft',
-      shots: 0,
-      comments: 0,
-      lastUpdateISO: new Date().toISOString()
-    }
+    // Actions
+    setPage,
+    setViewMode,
+    setIsCreateDialogOpen,
+    setIsEditDialogOpen,
+    setNewFolderName,
+    setIsFolderModalOpen,
+    setIsSceneModalOpen,
     
-    setFolders(prev => prev.map(folder => 
-      folder.id === activeFolderId 
-        ? { ...folder, scenes: [...folder.scenes, newScene] }
-        : folder
-    ))
-  }
-  
-  const handleEditFolder = (folder: Folder) => {
-    setEditingFolder(folder)
-    setNewFolderName(folder.name)
-    setIsEditDialogOpen(true)
-  }
-  
-  const handleUpdateFolder = () => {
-    if (!editingFolder || !newFolderName.trim()) return
-    
-    setFolders(folders.map(folder => 
-      folder.id === editingFolder.id 
-        ? { ...folder, name: newFolderName.trim() }
-        : folder
-    ))
-    setIsEditDialogOpen(false)
-    setEditingFolder(null)
-    setNewFolderName('')
-  }
-  
-  const handleDeleteFolder = (folderId: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المجلد؟ سيتم حذف جميع المشاهد بداخله.')) {
-      setFolders(folders.filter(folder => folder.id !== folderId))
-    }
-  }
-  
-  const renameFolder = (folderId: string, newName: string) => {
-    setFolders(folders.map(f => f.id === folderId ? { ...f, name: newName } : f))
-  }
-  
-  const reorderFolders = (fromIndex: number, toIndex: number) => {
-    const newFolders = [...folders]
-    const [moved] = newFolders.splice(fromIndex, 1)
-    newFolders.splice(toIndex, 0, moved)
-    setFolders(newFolders.map((f, i) => ({ ...f, order: i + 1 })))
-  }
-  
-  const moveScene = (sceneId: string, fromFolderId: string, toFolderId: string) => {
-    const fromFolder = folders.find(f => f.id === fromFolderId)
-    const scene = fromFolder?.scenes.find(s => s.id === sceneId)
-    if (!scene) return
-    
-    setFolders(folders.map(f => {
-      if (f.id === fromFolderId) {
-        return { ...f, scenes: f.scenes.filter(s => s.id !== sceneId) }
-      }
-      if (f.id === toFolderId) {
-        return { ...f, scenes: [...f.scenes, scene] }
-      }
-      return f
-    }))
-  }
-  
-  const openScene = (sceneId: string) => {
-    setActiveSceneId(sceneId)
-    setPage('review')
-  }
-  
-  const openFolder = (folderId: string) => {
-    setActiveFolderId(folderId)
-    setPage('folder')
-  }
-  
-  // Helper function for status badge
-  const getStatusBadge = (status: string) => {
-    const variant = status === 'approved' ? 'default' : status === 'review' ? 'outline' : status === 'changes' ? 'destructive' : 'secondary'
-    const label = status === 'draft' ? 'مسودة' : status === 'review' ? 'مراجعة' : status === 'changes' ? 'تعديلات' : status === 'approved' ? 'معتمد' : status
-    return <Badge variant={variant} className="text-xs">{label}</Badge>
-  }
+    // Functions
+    createFolder,
+    handleCreateFolder,
+    handleCreateScene,
+    handleEditFolder,
+    handleUpdateFolder,
+    handleDeleteFolder,
+    openScene,
+    openFolder,
+    getStatusBadge,
+    zoomIn,
+    zoomOut,
+    resetView
+  } = useDrawingTab()
 
-
-  // Library Page Component
   const LibraryPage = () => (
-    <div className="p-6">
-      <TabHeader
-        title="مكتبة المشاهد"
-        description="استعراض وإدارة مشاهد الرسم وتنظيمها داخل المجلدات"
-        actions={(
-          <>
-            <div className="flex items-center bg-muted rounded-lg p-1">
-              <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0"><Grid3X3 size={16} /></Button>
-              <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0"><List size={16} /></Button>
-            </div>
-            <Button onClick={createFolder} className="flex items-center gap-2">
-              <Plus size={16} />
-              مجلد جديد
-            </Button>
-          </>
-        )}
-      />
-      
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {folders.map((folder) => (
-            <Card
-              key={folder.id}
-              className="cursor-pointer hover:shadow-lg transition-all group relative"
-              onClick={() => openFolder(folder.id)}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold">مكتبة الرسوم</h2>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
             >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between mb-3">
-                    <FolderOpen className="text-primary mt-1" size={24} />
-                    <span className="text-sm text-muted-foreground">{folder.scenes.length} مشهد</span>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="group-hover:text-primary transition-colors text-right leading-tight">
-                        {folder.name}
-                      </CardTitle>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mr-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 hover:bg-background"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleEditFolder(folder)
-                          }}
-                        >
-                          <Edit size={12} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteFolder(folder.id)
-                          }}
-                        >
-                          <Trash2 size={12} />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-
-            </Card>
-          ))}
-        </div>
-      ) : (
-          <div className="space-y-4">
-            {folders.map((folder) => (
-              <Card
-                key={folder.id}
-                className="hover:shadow-md transition-all group"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <FolderOpen className="text-primary flex-shrink-0" size={24} />
-                    <div className="flex-1 cursor-pointer" onClick={() => openFolder(folder.id)}>
-                       <div className="flex items-start justify-between mb-2">
-                         <h3 className="font-semibold text-right leading-tight">{folder.name}</h3>
-                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mr-3">
-                           <Button
-                             variant="ghost"
-                             size="sm"
-                             className="h-6 w-6 p-0"
-                             onClick={(e) => {
-                               e.stopPropagation()
-                               handleEditFolder(folder)
-                             }}
-                           >
-                             <Edit size={12} />
-                           </Button>
-                           <Button
-                             variant="ghost"
-                             size="sm"
-                             className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                             onClick={(e) => {
-                               e.stopPropagation()
-                               handleDeleteFolder(folder.id)
-                             }}
-                           >
-                             <Trash2 size={12} />
-                           </Button>
-                         </div>
-                       </div>
-                       <div className="text-sm text-muted-foreground mb-3 text-right">{folder.scenes.length} مشهد</div>
-                     </div>
-                     <div className="flex items-center gap-2 flex-shrink-0">
-                       <ChevronLeft className="text-muted-foreground" size={20} />
-                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              <Grid3X3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
           </div>
-        )}
+        </div>
+        <Button onClick={createFolder}>
+          <FolderPlus className="h-4 w-4 mr-2" />
+          مجلد جديد
+        </Button>
+      </div>
+
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+        {folders.map((folder) => (
+          <Card key={folder.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => openFolder(folder.id)}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{folder.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditFolder(folder)
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteFolder(folder.id)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>{folder.scenes.length} مشهد</span>
+                <span>المجلد #{folder.order}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   )
-  
-  // Folder Page Component
-  const FolderPage = () => {
-    const folder = folders.find(f => f.id === activeFolderId)
-    if (!folder) return null
-    
-    return (
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Button variant="ghost" onClick={() => setPage('library')} className="p-2 text-muted-foreground hover:text-foreground"><ArrowRight size={20} /></Button>
-        </div>
-        <TabHeader
-          title={folder.name}
-          description={`(${folder.scenes.length} مشهد)`}
-          actions={(
-            <>
-              <div className="flex items-center bg-muted rounded-lg p-1">
-                <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0"><Grid3X3 size={16} /></Button>
-                <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0"><List size={16} /></Button>
-              </div>
-              <Button onClick={() => setIsSceneModalOpen(true)} className="flex items-center gap-2">
-                <Plus size={16} />
-                مشهد جديد
-              </Button>
-            </>
-          )}
-        />
-        
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {folder.scenes.map((scene) => (
-              <Card
-                key={scene.id}
-                onClick={() => openScene(scene.id)}
-                className="cursor-pointer hover:shadow-lg transition-all group overflow-hidden"
-              >
-                <div className="aspect-video bg-muted">
-                  <img
-                    src={scene.thumbnail}
-                    alt={scene.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                  />
-                </div>
-                <CardContent className="p-4">
-                  <CardTitle className="mb-2 group-hover:text-primary transition-colors">
-                    {scene.title}
-                  </CardTitle>
-                  <div className="flex items-center justify-between mb-2">
-                    {getStatusBadge(scene.status)}
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Camera size={14} />
-                      <span>{scene.shots}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MessageCircle size={14} />
-                      <span>{scene.comments}</span>
-                    </div>
-                    <span>{new Date(scene.lastUpdateISO).toLocaleDateString('ar-SA')}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {folder.scenes.map((scene) => (
-              <Card
-                key={scene.id}
-                onClick={() => openScene(scene.id)}
-                className="cursor-pointer hover:shadow-md transition-all"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-muted rounded-lg overflow-hidden">
-                      <img
-                        src={scene.thumbnail}
-                        alt={scene.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{scene.title}</h3>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                         {getStatusBadge(scene.status)}
-                        <div className="flex items-center gap-1">
-                          <Camera size={14} />
-                          <span>{scene.shots} لقطة</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MessageCircle size={14} />
-                          <span>{scene.comments} تعليق</span>
-                        </div>
-                        <span>آخر تحديث: {new Date(scene.lastUpdateISO).toLocaleDateString('ar-SA')}</span>
-                      </div>
-                    </div>
-                    <ChevronLeft className="text-muted-foreground" size={20} />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-  
-  // Review Page Component
-  const ReviewPage = () => {
-    const scene = folders.flatMap(f => f.scenes).find(s => s.id === activeSceneId)
-    if (!scene) return null
-    
-    const [versions] = useState<Version[]>([
-      {
-        id: 'v1',
-        name: 'الإصدار 1.0',
-        createdAt: '2025-08-24T10:00:00Z',
-        thumbnail: scene.thumbnail,
-        status: 'approved',
-        notes: 'الإصدار الأولي'
-      },
-      {
-        id: 'v2',
-        name: 'الإصدار 1.1',
-        createdAt: '2025-08-26T12:30:00Z',
-        thumbnail: scene.thumbnail,
-        status: 'review',
-        notes: 'تحديثات على الإضاءة'
-      }
-    ])
-    
-    const [comments] = useState<Comment[]>([
-      {
-        id: 'c1',
-        author: 'أحمد محمد',
-        role: 'مخرج',
-        at: '2025-08-26T14:30:00Z',
-        text: 'يحتاج تعديل في الإضاءة هنا',
-        status: 'open',
-        pin: { xPct: 45, yPct: 30 }
-      },
-      {
-        id: 'c2',
-        author: 'فاطمة علي',
-        role: 'مصممة',
-        at: '2025-08-26T15:00:00Z',
-        text: 'ممتاز! الألوان متناسقة',
-        status: 'resolved'
-      }
-    ])
-    
-    const [zoom, setZoom] = useState(100)
-    const [pan, setPan] = useState({ x: 0, y: 0 })
-    const viewerRef = useRef<HTMLDivElement>(null)
-    
-    return (
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <Card className="border-b border-border rounded-none">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPage('folder')}
-                  className="p-2"
-                >
-                  <ChevronLeft size={20} />
-                </Button>
-                <h1 className="text-lg font-semibold">{scene.title}</h1>
-              </div>
-              <Button variant="outline" size="sm">
-                تحميل
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Main Content */}
-        <div className="flex-1 flex" style={{ minHeight: '80vh' }}>
-          {/* Image Viewer */}
-          <div className="flex-1 bg-muted/30 relative">
-            <div className="h-full overflow-hidden relative bg-background" ref={viewerRef}>
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{
-                  transform: `translate(${pan.x}px, ${pan.y}px)`
-                }}
-              >
-                <div className="relative">
-                  <img
-                    src={scene.thumbnail}
-                    alt={scene.title}
-                    className="max-w-none shadow-lg rounded-lg"
+  const FolderPage = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => setPage('library')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            العودة
+          </Button>
+          <h2 className="text-2xl font-bold">{currentFolder?.name}</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('grid')}
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => setIsSceneModalOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            مشهد جديد
+          </Button>
+        </div>
+      </div>
+
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+        {currentFolder?.scenes.map((scene) => {
+          const statusBadge = getStatusBadge(scene.status)
+          return (
+            <Card key={scene.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => openScene(scene.id)}>
+              <CardHeader className="pb-3">
+                <div className="aspect-video bg-muted rounded-lg overflow-hidden mb-3">
+                  <img src={scene.thumbnail} alt={scene.title} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{scene.title}</CardTitle>
+                  <Badge variant={statusBadge.variant as any}>{statusBadge.label}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1">
+                      <Camera className="h-4 w-4" />
+                      {scene.shots}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="h-4 w-4" />
+                      {scene.comments}
+                    </span>
+                  </div>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    {new Date(scene.lastUpdateISO).toLocaleDateString('ar')}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  const ReviewPage = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => setPage('folder')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            العودة
+          </Button>
+          <h2 className="text-2xl font-bold">{currentScene?.title}</h2>
+        </div>
+        <Button>
+          <Download className="h-4 w-4 mr-2" />
+          تحميل
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
+          <Card>
+            <CardContent className="p-0">
+              <div className="relative bg-muted" ref={viewerRef}>
+                <div className="aspect-video relative overflow-hidden">
+                  <img 
+                    src={currentScene?.thumbnail} 
+                    alt={currentScene?.title}
+                    className="w-full h-full object-contain"
                     style={{
-                      transform: `scale(${zoom / 100})`
+                      transform: `scale(${zoom / 100}) translate(${pan.x}px, ${pan.y}px)`
                     }}
                   />
-                  {/* Comment Pins */}
                   {comments.filter(c => c.pin).map((comment) => (
                     <div
                       key={comment.id}
-                      className="absolute w-6 h-6 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-xs font-bold cursor-pointer hover:bg-primary/90 transition-colors shadow-md"
+                      className="absolute w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer"
                       style={{
                         left: `${comment.pin!.xPct}%`,
                         top: `${comment.pin!.yPct}%`,
                         transform: 'translate(-50%, -50%)'
                       }}
-                      title={comment.text}
                     >
-                      <MessageCircle size={12} />
+                      {comments.indexOf(comment) + 1}
                     </div>
                   ))}
                 </div>
-              </div>
-              
-              {/* Zoom Controls - Bottom Right */}
-              <div className="absolute bottom-4 right-4 flex items-center gap-2 bg-background/90 backdrop-blur-sm rounded-lg p-2 shadow-lg">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setZoom(Math.max(25, zoom - 25))}
-                >
-                  <ZoomOut size={16} />
-                </Button>
-                <span className="text-sm text-muted-foreground min-w-[60px] text-center">{zoom}%</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setZoom(Math.min(200, zoom + 25))}
-                >
-                  <ZoomIn size={16} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setZoom(100); setPan({ x: 0, y: 0 }) }}
-                >
-                  إعادة تعيين
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Comments Panel - Right Side */}
-          <Card className="w-80 border-l border-border flex flex-col rounded-none">
-            <CardHeader className="border-b border-border">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">التعليقات</CardTitle>
-                <Button variant="ghost" size="sm">
-                  <Plus size={16} />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 p-4 overflow-y-auto">
-              <div className="space-y-3">
-                {comments.map((comment) => (
-                  <Card key={comment.id} className="bg-muted/50">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <div className="font-medium text-sm">{comment.author}</div>
-                          <div className="text-xs text-muted-foreground">{comment.role}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {comment.pin && (
-                            <MapPin size={12} className="text-primary" />
-                          )}
-                          <Badge variant={comment.status === 'open' ? 'destructive' : 'default'} className="text-xs">
-                            {comment.status === 'open' ? 'مفتوح' : 'محلول'}
-                          </Badge>
-                        </div>
-                      </div>
-                      <p className="text-sm">{comment.text}</p>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        {new Date(comment.at).toLocaleString('ar-SA')}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  <Button variant="secondary" size="sm" onClick={zoomOut}>
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium bg-background px-2 py-1 rounded">
+                    {zoom}%
+                  </span>
+                  <Button variant="secondary" size="sm" onClick={zoomIn}>
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={resetView}>
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Versions Section - Full Width Below */}
-        <Card className="border-t border-border rounded-none">
-          <CardHeader className="border-b border-border">
-            <CardTitle className="text-lg">الإصدارات</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {versions.map((version) => (
-                <Card key={version.id} className="cursor-pointer hover:bg-accent transition-colors">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden">
-                        <img src={version.thumbnail} alt={version.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{version.name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(version.createdAt).toLocaleDateString('ar-SA')}
-                        </div>
-                      </div>
-                      <Badge variant={version.status === 'approved' ? 'default' : version.status === 'review' ? 'secondary' : version.status === 'changes' ? 'destructive' : 'outline'}>
-                        {version.status === 'draft' ? 'مسودة' : version.status === 'review' ? 'مراجعة' : version.status === 'changes' ? 'تعديلات' : 'معتمد'}
-                      </Badge>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                التعليقات
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {comments.map((comment, index) => (
+                <div key={comment.id} className="border-b pb-4 last:border-b-0">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {index + 1}
                     </div>
-                    {version.notes && (
-                      <p className="text-xs text-muted-foreground mt-2">{version.notes}</p>
-                    )}
-                  </CardContent>
-                </Card>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{comment.author}</span>
+                        <Badge variant="outline" className="text-xs">{comment.role}</Badge>
+                        <Badge variant={comment.status === 'open' ? 'destructive' : 'default'} className="text-xs">
+                          {comment.status === 'open' ? 'مفتوح' : 'محلول'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">{comment.text}</p>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(comment.at).toLocaleString('ar')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                الإصدارات
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {versions.map((version) => {
+                const statusBadge = getStatusBadge(version.status)
+                return (
+                  <div key={version.id} className="border rounded-lg p-3">
+                    <div className="flex items-start gap-3">
+                      <img src={version.thumbnail} alt={version.name} className="w-12 h-12 rounded object-cover" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{version.name}</span>
+                          <Badge variant={statusBadge.variant as any} className="text-xs">{statusBadge.label}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-1">{version.notes}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(version.createdAt).toLocaleDateString('ar')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    )
-  }
-  
+    </div>
+  )
+
   return (
-    <div className="h-full bg-background">
+    <div className="p-6">
       {page === 'library' && <LibraryPage />}
       {page === 'folder' && <FolderPage />}
       {page === 'review' && <ReviewPage />}
-      
+
       {/* Create Folder Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>إنشاء مجلد جديد</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">اسم المجلد</label>
-              <Input
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="أدخل اسم المجلد"
-              />
+              <Label htmlFor="folder-name">اسم المجلد</Label>
+              <Input id="folder-name" placeholder="أدخل اسم المجلد" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>إلغاء</Button>
+              <Button onClick={() => setIsCreateDialogOpen(false)}>إنشاء</Button>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-              إلغاء
-            </Button>
-            <Button onClick={() => handleCreateFolder({ name: newFolderName })} disabled={!newFolderName.trim()}>
-              إنشاء المجلد
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Edit Folder Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>تعديل المجلد</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">اسم المجلد</label>
-              <Input
+              <Label htmlFor="edit-folder-name">اسم المجلد</Label>
+              <Input 
+                id="edit-folder-name" 
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="أدخل اسم المجلد"
+                placeholder="أدخل اسم المجلد" 
               />
             </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>إلغاء</Button>
+              <Button onClick={handleUpdateFolder}>حفظ</Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              إلغاء
-            </Button>
-            <Button onClick={handleUpdateFolder} disabled={!newFolderName.trim()}>
-              حفظ التغييرات
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Unified Modals */}
-       <UnifiedModal
-         isOpen={isFolderModalOpen}
-         onClose={() => setIsFolderModalOpen(false)}
-         title="إنشاء مجلد جديد"
-         type="folder"
-         onSubmit={handleCreateFolder}
-       />
-       
-       <UnifiedModal
-         isOpen={isSceneModalOpen}
-         onClose={() => setIsSceneModalOpen(false)}
-         title="إضافة مشهد جديد"
-         type="scene"
-         onSubmit={handleCreateScene}
-       />
+
+      {/* Unified Folder Modal */}
+      <Dialog open={isFolderModalOpen} onOpenChange={setIsFolderModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إنشاء مجلد جديد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="modal-folder-name">اسم المجلد</Label>
+              <Input id="modal-folder-name" placeholder="أدخل اسم المجلد" />
+            </div>
+            <div>
+              <Label htmlFor="modal-folder-description">الوصف (اختياري)</Label>
+              <Textarea id="modal-folder-description" placeholder="أدخل وصف المجلد" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsFolderModalOpen(false)}>إلغاء</Button>
+              <Button onClick={() => {
+                const nameInput = document.getElementById('modal-folder-name') as HTMLInputElement
+                const descInput = document.getElementById('modal-folder-description') as HTMLTextAreaElement
+                handleCreateFolder({ name: nameInput.value, description: descInput.value })
+              }}>إنشاء</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unified Scene Modal */}
+      <Dialog open={isSceneModalOpen} onOpenChange={setIsSceneModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إنشاء مشهد جديد</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="modal-scene-name">اسم المشهد</Label>
+              <Input id="modal-scene-name" placeholder="أدخل اسم المشهد" />
+            </div>
+            <div>
+              <Label htmlFor="modal-scene-description">الوصف (اختياري)</Label>
+              <Textarea id="modal-scene-description" placeholder="أدخل وصف المشهد" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsSceneModalOpen(false)}>إلغاء</Button>
+              <Button onClick={() => {
+                const nameInput = document.getElementById('modal-scene-name') as HTMLInputElement
+                const descInput = document.getElementById('modal-scene-description') as HTMLTextAreaElement
+                handleCreateScene({ name: nameInput.value, description: descInput.value })
+              }}>إنشاء</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
+export default DrawingTab

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -34,181 +34,66 @@ import {
   Crop
 } from 'lucide-react'
 import TabHeader from '../../components/TabHeader'
-
-interface EditingClip {
-  id: string
-  name: string
-  type: 'video' | 'audio' | 'image' | 'text'
-  status: 'raw' | 'editing' | 'review' | 'final'
-  duration: number // in seconds
-  startTime: number
-  endTime: number
-  trackId: string
-  sceneId: string
-  effects: string[]
-  transitions: string[]
-  assignedTo: string
-  notes?: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-interface EditingTrack {
-  id: string
-  name: string
-  type: 'video' | 'audio' | 'subtitle'
-  clips: string[]
-  muted: boolean
-  volume: number
-  locked: boolean
-}
-
-interface EditingProject {
-  id: string
-  name: string
-  duration: number
-  frameRate: number
-  resolution: string
-  status: 'draft' | 'review' | 'final'
-  progress: number
-}
+import { useEditingTab } from '../../hooks/useEditingTab'
 
 export default function EditingTab() {
-  const [clips, setClips] = useState<EditingClip[]>([
-    {
-      id: '1',
-      name: 'المشهد الأول - لقطة عامة',
-      type: 'video',
-      status: 'final',
-      duration: 15.5,
-      startTime: 0,
-      endTime: 15.5,
-      trackId: 'video1',
-      sceneId: '1',
-      effects: ['color_correction', 'stabilization'],
-      transitions: ['fade_in'],
-      assignedTo: 'أحمد محمد',
-      notes: 'تم تطبيق تصحيح الألوان',
-      createdAt: new Date('2024-01-10'),
-      updatedAt: new Date('2024-02-10')
-    },
-    {
-      id: '2',
-      name: 'حوار الشخصية الرئيسية',
-      type: 'audio',
-      status: 'review',
-      duration: 12.0,
-      startTime: 2.0,
-      endTime: 14.0,
-      trackId: 'audio1',
-      sceneId: '1',
-      effects: ['noise_reduction', 'eq'],
-      transitions: [],
-      assignedTo: 'فاطمة علي',
-      notes: 'يحتاج ضبط مستوى الصوت',
-      createdAt: new Date('2024-01-15'),
-      updatedAt: new Date('2024-02-18')
-    },
-    {
-      id: '3',
-      name: 'تأثير الانفجار السحري',
-      type: 'video',
-      status: 'editing',
-      duration: 3.0,
-      startTime: 10.0,
-      endTime: 13.0,
-      trackId: 'effects1',
-      sceneId: '2',
-      effects: ['glow', 'particles'],
-      transitions: ['cross_dissolve'],
-      assignedTo: 'محمد حسن',
-      notes: 'قيد إضافة التأثيرات البصرية',
-      createdAt: new Date('2024-01-20'),
-      updatedAt: new Date('2024-02-19')
-    }
-  ])
+  const {
+    // State
+    clips,
+    tracks,
+    project,
+    selectedClip,
+    isPlaying,
+    currentTime,
+    zoomLevel,
+    
+    // Computed values
+    totalClips,
+    finalClips,
+    overallProgress,
+    reviewClips,
+    
+    // Helper functions
+    getStatusColor,
+    getStatusIcon,
+    getTypeIcon,
+    formatTime,
+    
+    // Actions
+    setSelectedClip,
+    setIsPlaying,
+    setCurrentTime,
+    setZoomLevel,
+    togglePlayback,
+    updateZoomLevel,
+    resetZoom,
+    selectClip,
+    updateCurrentTime,
+    skipToStart,
+    skipToEnd,
+    stopPlayback,
+    toggleTrackMute,
+    updateTrackVolume
+  } = useEditingTab()
 
-  const [tracks] = useState<EditingTrack[]>([
-    {
-      id: 'video1',
-      name: 'الفيديو الرئيسي',
-      type: 'video',
-      clips: ['1'],
-      muted: false,
-      volume: 100,
-      locked: false
-    },
-    {
-      id: 'audio1',
-      name: 'الصوت الرئيسي',
-      type: 'audio',
-      clips: ['2'],
-      muted: false,
-      volume: 85,
-      locked: false
-    },
-    {
-      id: 'effects1',
-      name: 'التأثيرات البصرية',
-      type: 'video',
-      clips: ['3'],
-      muted: false,
-      volume: 100,
-      locked: false
-    }
-  ])
-
-  const [project] = useState<EditingProject>({
-    id: '1',
-    name: 'الحلقة الأولى - المونتاج النهائي',
-    duration: 180, // 3 minutes
-    frameRate: 24,
-    resolution: '1920x1080',
-    status: 'review',
-    progress: 75
-  })
-
-  const [selectedClip, setSelectedClip] = useState<EditingClip | null>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [zoomLevel, setZoomLevel] = useState(100)
-
-  const getStatusColor = (status: EditingClip['status']) => {
-    switch (status) {
-      case 'raw': return 'bg-gray-500'
-      case 'editing': return 'bg-blue-500'
-      case 'review': return 'bg-yellow-500'
-      case 'final': return 'bg-green-500'
-      default: return 'bg-gray-500'
-    }
-  }
-
-  const getStatusIcon = (status: EditingClip['status']) => {
-    switch (status) {
-      case 'final': return <CheckCircle className="h-4 w-4" />
-      case 'review': return <AlertCircle className="h-4 w-4" />
+  const getStatusIconComponent = (status: string) => {
+    const iconName = getStatusIcon(status)
+    switch (iconName) {
+      case 'CheckCircle': return <CheckCircle className="h-4 w-4" />
+      case 'AlertCircle': return <AlertCircle className="h-4 w-4" />
       default: return <Clock className="h-4 w-4" />
     }
   }
 
-  const getTypeIcon = (type: EditingClip['type']) => {
-    switch (type) {
-      case 'video': return <Film className="h-4 w-4" />
-      case 'audio': return <Volume2 className="h-4 w-4" />
-      case 'image': return <Eye className="h-4 w-4" />
-      case 'text': return <Edit3 className="h-4 w-4" />
+  const getTypeIconComponent = (type: string) => {
+    const iconName = getTypeIcon(type)
+    switch (iconName) {
+      case 'Film': return <Film className="h-4 w-4" />
+      case 'Volume2': return <Volume2 className="h-4 w-4" />
+      case 'Eye': return <Eye className="h-4 w-4" />
+      case 'Edit3': return <Edit3 className="h-4 w-4" />
       default: return <Film className="h-4 w-4" />
     }
-  }
-
-  const totalClips = clips.length
-  const finalClips = clips.filter(c => c.status === 'final').length
-  const overallProgress = totalClips > 0 ? (finalClips / totalClips) * 100 : 0
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = (seconds % 60).toFixed(1)
-    return `${mins}:${secs.padStart(4, '0')}`
   }
 
   return (
@@ -304,9 +189,7 @@ export default function EditingTab() {
             <CardTitle className="text-sm font-medium">قيد المراجعة</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {clips.filter(c => c.status === 'review').length}
-            </div>
+            <div className="text-2xl font-bold text-yellow-600">{reviewClips}</div>
             <p className="text-xs text-muted-foreground">ينتظر الموافقة</p>
           </CardContent>
         </Card>
@@ -337,7 +220,7 @@ export default function EditingTab() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setZoomLevel(Math.max(50, zoomLevel - 25))}
+                    onClick={() => updateZoomLevel(-25)}
                   >
                     <Minimize className="h-4 w-4" />
                   </Button>
@@ -345,7 +228,7 @@ export default function EditingTab() {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setZoomLevel(Math.min(200, zoomLevel + 25))}
+                    onClick={() => updateZoomLevel(25)}
                   >
                     <Maximize className="h-4 w-4" />
                   </Button>
@@ -378,22 +261,19 @@ export default function EditingTab() {
               
               {/* Playback Controls */}
               <div className="flex items-center justify-center gap-3">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={skipToStart}>
                   <SkipBack className="h-4 w-4" />
                 </Button>
                 
-                <Button
-                  size="lg"
-                  onClick={() => setIsPlaying(!isPlaying)}
-                >
+                <Button size="lg" onClick={togglePlayback}>
                   {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 </Button>
                 
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={skipToEnd}>
                   <SkipForward className="h-4 w-4" />
                 </Button>
                 
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={stopPlayback}>
                   <Square className="h-4 w-4" />
                 </Button>
               </div>
@@ -417,9 +297,7 @@ export default function EditingTab() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            // Toggle mute logic here
-                          }}
+                          onClick={() => toggleTrackMute(track.id)}
                         >
                           {track.muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                         </Button>
@@ -459,7 +337,7 @@ export default function EditingTab() {
                               left: `${leftPercent}%`, 
                               width: `${widthPercent}%` 
                             }}
-                            onClick={() => setSelectedClip(clip)}
+                            onClick={() => selectClip(clip)}
                           >
                             <div className="p-1 text-xs text-white truncate">
                               {clip.name}
@@ -518,7 +396,7 @@ export default function EditingTab() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
-                  {getTypeIcon(selectedClip.type)}
+                  {getTypeIconComponent(selectedClip.type)}
                   تفاصيل المقطع
                 </CardTitle>
               </CardHeader>
