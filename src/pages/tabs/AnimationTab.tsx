@@ -30,6 +30,7 @@ import {
   Target,
   Workflow
 } from 'lucide-react'
+import TabHeader from '../../components/TabHeader'
 
 interface AnimationSequence {
   id: string
@@ -191,24 +192,24 @@ export default function AnimationTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">إدارة التحريك</h1>
-          <p className="text-muted-foreground">تحريك الشخصيات والعناصر وإنشاء التأثيرات المتحركة</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Upload className="h-4 w-4" />
-            رفع تسلسل
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4" />
-            تسلسل جديد
-          </Button>
-        </div>
-      </div>
+      <TabHeader
+        title="إدارة التحريك"
+        description="تحريك الشخصيات والعناصر وإنشاء التأثيرات المتحركة"
+        actions={(
+          <>
+            <Button variant="outline">
+              <Upload className="h-4 w-4" />
+              رفع تسلسل
+            </Button>
+            <Button>
+              <Plus className="h-4 w-4" />
+              تسلسل جديد
+            </Button>
+          </>
+        )}
+      />
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -545,6 +546,6 @@ export default function AnimationTab() {
           </Card>
         </div>
       </div>
-    </div>
+    </>
   )
 }

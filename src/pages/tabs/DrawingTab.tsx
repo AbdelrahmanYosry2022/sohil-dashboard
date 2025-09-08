@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/badge'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
+import { UnifiedModal } from '../../components/ui/unified-modal'
 import {
   Plus,
   Grid3X3,
@@ -21,6 +22,7 @@ import {
   Trash2,
   MoreHorizontal
 } from 'lucide-react'
+import TabHeader from '../../components/TabHeader'
 
 interface Scene {
   id: string
@@ -115,24 +117,44 @@ export default function DrawingTab() {
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
   const [newFolderName, setNewFolderName] = useState('')
   
+  // Modal states
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
+  const [isSceneModalOpen, setIsSceneModalOpen] = useState(false)
+  
   // Helper functions
   const createFolder = () => {
-    setNewFolderName('')
-    setIsCreateDialogOpen(true)
+    setIsFolderModalOpen(true)
   }
   
-  const handleCreateFolder = () => {
-    if (!newFolderName.trim()) return
-    
+  const handleCreateFolder = (data: { name: string; description?: string }) => {
     const newFolder: Folder = {
       id: `folder-${Date.now()}`,
-      name: newFolderName.trim(),
+      name: data.name,
       order: folders.length,
       scenes: []
     }
     setFolders([...folders, newFolder])
-    setIsCreateDialogOpen(false)
-    setNewFolderName('')
+  }
+  
+  // Scene management functions
+  const handleCreateScene = (data: { name: string; description?: string }) => {
+    if (!activeFolderId) return
+    
+    const newScene: Scene = {
+      id: `scene-${Date.now()}`,
+      title: data.name,
+      thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
+      status: 'draft',
+      shots: 0,
+      comments: 0,
+      lastUpdateISO: new Date().toISOString()
+    }
+    
+    setFolders(prev => prev.map(folder => 
+      folder.id === activeFolderId 
+        ? { ...folder, scenes: [...folder.scenes, newScene] }
+        : folder
+    ))
   }
   
   const handleEditFolder = (folder: Folder) => {
@@ -205,40 +227,25 @@ export default function DrawingTab() {
   }
 
 
-
   // Library Page Component
   const LibraryPage = () => (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">مكتبة المشاهد</h1>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-muted rounded-lg p-1">
-            <Button
-               variant={viewMode === 'grid' ? 'default' : 'ghost'}
-               size="sm"
-               onClick={() => setViewMode('grid')}
-               className="h-8 w-8 p-0"
-             >
-               <Grid3X3 size={16} />
-             </Button>
-             <Button
-               variant={viewMode === 'list' ? 'default' : 'ghost'}
-               size="sm"
-               onClick={() => setViewMode('list')}
-               className="h-8 w-8 p-0"
-             >
-               <List size={16} />
-             </Button>
-          </div>
-          <Button
-            onClick={createFolder}
-            className="flex items-center gap-2"
-          >
-            <Plus size={16} />
-            مجلد جديد
-          </Button>
-        </div>
-      </div>
+      <TabHeader
+        title="مكتبة المشاهد"
+        description="استعراض وإدارة مشاهد الرسم وتنظيمها داخل المجلدات"
+        actions={(
+          <>
+            <div className="flex items-center bg-muted rounded-lg p-1">
+              <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0"><Grid3X3 size={16} /></Button>
+              <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0"><List size={16} /></Button>
+            </div>
+            <Button onClick={createFolder} className="flex items-center gap-2">
+              <Plus size={16} />
+              مجلد جديد
+            </Button>
+          </>
+        )}
+      />
       
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -246,8 +253,8 @@ export default function DrawingTab() {
             <Card
               key={folder.id}
               className="cursor-pointer hover:shadow-lg transition-all group relative"
+              onClick={() => openFolder(folder.id)}
             >
-              <div onClick={() => openFolder(folder.id)}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between mb-3">
                     <FolderOpen className="text-primary mt-1" size={24} />
@@ -286,7 +293,6 @@ export default function DrawingTab() {
                   </div>
                 </CardHeader>
 
-              </div>
             </Card>
           ))}
         </div>
@@ -349,41 +355,25 @@ export default function DrawingTab() {
     
     return (
       <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => setPage('library')}
-            className="p-2 text-muted-foreground hover:text-foreground"
-          >
-            <ArrowRight size={20} />
-          </Button>
-          <h1 className="text-2xl font-bold">{folder.name}</h1>
-          <span className="text-muted-foreground">({folder.scenes.length} مشهد)</span>
+        <div className="flex items-center gap-2 mb-4">
+          <Button variant="ghost" onClick={() => setPage('library')} className="p-2 text-muted-foreground hover:text-foreground"><ArrowRight size={20} /></Button>
         </div>
-        
-        <div className="flex items-center justify-between mb-6">
-          <div></div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-muted rounded-lg p-1">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('grid')}
-                className="h-8 w-8 p-0"
-              >
-                <Grid3X3 size={16} />
+        <TabHeader
+          title={folder.name}
+          description={`(${folder.scenes.length} مشهد)`}
+          actions={(
+            <>
+              <div className="flex items-center bg-muted rounded-lg p-1">
+                <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0"><Grid3X3 size={16} /></Button>
+                <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0"><List size={16} /></Button>
+              </div>
+              <Button onClick={() => setIsSceneModalOpen(true)} className="flex items-center gap-2">
+                <Plus size={16} />
+                مشهد جديد
               </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="h-8 w-8 p-0"
-              >
-                <List size={16} />
-              </Button>
-            </div>
-          </div>
-        </div>
+            </>
+          )}
+        />
         
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -689,63 +679,74 @@ export default function DrawingTab() {
       
       {/* Create Folder Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent onClose={() => setIsCreateDialogOpen(false)}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>إنشاء مجلد جديد</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
               <label className="text-sm font-medium mb-2 block">اسم المجلد</label>
               <Input
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="أدخل اسم المجلد"
-                className="w-full"
               />
             </div>
           </div>
           <DialogFooter>
-            <div className="flex justify-end gap-2 w-full">
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                إلغاء
-              </Button>
-              <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
-                إنشاء المجلد
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={() => handleCreateFolder({ name: newFolderName })} disabled={!newFolderName.trim()}>
+              إنشاء المجلد
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       
       {/* Edit Folder Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent onClose={() => setIsEditDialogOpen(false)}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>تعديل المجلد</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
               <label className="text-sm font-medium mb-2 block">اسم المجلد</label>
               <Input
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 placeholder="أدخل اسم المجلد"
-                className="w-full"
               />
             </div>
           </div>
           <DialogFooter>
-            <div className="flex justify-end gap-2 w-full">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                إلغاء
-              </Button>
-              <Button onClick={handleUpdateFolder} disabled={!newFolderName.trim()}>
-                حفظ التغييرات
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleUpdateFolder} disabled={!newFolderName.trim()}>
+              حفظ التغييرات
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Unified Modals */}
+       <UnifiedModal
+         isOpen={isFolderModalOpen}
+         onClose={() => setIsFolderModalOpen(false)}
+         title="إنشاء مجلد جديد"
+         type="folder"
+         onSubmit={handleCreateFolder}
+       />
+       
+       <UnifiedModal
+         isOpen={isSceneModalOpen}
+         onClose={() => setIsSceneModalOpen(false)}
+         title="إضافة مشهد جديد"
+         type="scene"
+         onSubmit={handleCreateScene}
+       />
     </div>
   )
 }

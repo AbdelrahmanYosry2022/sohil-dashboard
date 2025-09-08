@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React from 'react'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Textarea } from '../../components/ui/textarea'
@@ -24,154 +24,50 @@ import {
   ChevronRight,
   Plus,
   Trash2,
-  Clock,
+  Loader2,
 } from 'lucide-react'
-
-interface Scene {
-  id: string
-  title: string
-  content: string
-  duration?: number
-}
+import { useTextTab } from '../../hooks/useTextTab'
 
 export default function TextTab() {
-  const [scenes, setScenes] = useState<Scene[]>([
-    {
-      id: '1',
-      title: 'المشهد الأول: الافتتاحية',
-      content: `**الراوي:** في عالم مليء بالأحلام والطموحات، تبدأ رحلتنا...
+  const {
+    scenes,
+    currentSceneIndex,
+    isPreview,
+    isLoading,
+    isSaving,
+    currentScene,
+    scenesContainerRef,
+    setCurrentSceneIndex,
+    setIsPreview,
+    saveScenes,
+    formatText,
+    exportContent,
+    handleSceneContentChange,
+    handleSceneTitleChange,
+    addNewScene,
+    deleteScene,
+    navigateToScene,
+  } = useTextTab()
 
-**الشخصية الرئيسية:** مرحباً بكم في عالمنا الجديد
-
-**الشخصية الثانوية:** هذا المكان مذهل!
-
-(صوت الموسيقى الهادئة في الخلفية)
-
-**الراوي:** وهكذا تبدأ قصتنا في هذا العالم الساحر...`,
-    },
-    {
-      id: '2',
-      title: 'المشهد الثاني: التطوير',
-      content: `### الوصف:
-يظهر المشهد جمال الطبيعة الخلابة مع الموسيقى الهادئة في الخلفية.
-
-**الشخصية الرئيسية:** انظروا إلى هذا الجمال!
-
-**الشخصية الثانوية:** لم أر مثل هذا المنظر من قبل.
-
-### ملاحظات الإخراج:
-- استخدام زاوية واسعة للمناظر الطبيعية
-- التركيز على تعبيرات الوجه
-- الانتقال السلس بين المشاهد`,
-    },
-    {
-      id: '3',
-      title: 'المشهد الثالث: الخاتمة',
-      content: `**الراوي:** وهكذا تنتهي حلقتنا الأولى، ونترككم مع الشوق للحلقة القادمة...
-
-**الشخصية الرئيسية:** إلى اللقاء في المغامرة القادمة!
-
-**الشخصية الثانوية:** سنكون بانتظاركم!
-
-(موسيقى الخاتمة)
-
----
-
-### معلومات إضافية:
-- **مدة الحلقة المقدرة:** 15 دقيقة
-- **عدد الشخصيات:** 5 شخصيات
-- **المواقع:** 3 مواقع مختلفة`,
-    },
-  ])
-  const [currentSceneIndex, setCurrentSceneIndex] = useState(0)
-  const [isPreview, setIsPreview] = useState(false)
-  const scenesContainerRef = useRef<HTMLDivElement>(null)
-
-  const currentScene = scenes[currentSceneIndex]
-
-  useEffect(() => {
-    if (scenesContainerRef.current) {
-      const activeButton = scenesContainerRef.current.querySelector(
-        `[data-scene-index="${currentSceneIndex}"]`,
-      ) as HTMLElement | null
-      if (activeButton) {
-        activeButton.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
-      }
-    }
-  }, [currentSceneIndex])
-
-  const stats = useMemo(() => {
-    const content = currentScene?.content || ''
-    const words = content.trim().split(/\s+/).length
-    const characters = content.length
-    const charactersNoSpaces = content.replace(/\s/g, '').length
-    const estimatedMinutes = Math.ceil(words / 150)
-
-    return { words, characters, charactersNoSpaces, estimatedMinutes }
-  }, [currentScene])
-
-  const totalStats = useMemo(() => {
-    const totalContent = scenes.map((s) => s.content).join(' ')
-    const words = totalContent.trim().split(/\s+/).length
-    const characters = totalContent.length
-    const estimatedMinutes = Math.ceil(words / 150)
-    return { words, characters, estimatedMinutes, scenes: scenes.length }
-  }, [scenes])
-
-  const formatText = (format: string) => {
-    console.log(`تطبيق تنسيق: ${format}`)
-  }
-
-  const saveContent = () => {
-    console.log('تم حفظ جميع المشاهد')
-  }
-
-  const exportContent = () => {
-    const fullContent = scenes
-      .map((scene) => `${scene.title}\n${'='.repeat(50)}\n\n${scene.content}\n\n`)
-      .join('\n')
-
-    const element = document.createElement('a')
-    const file = new Blob([fullContent], { type: 'text/plain' })
-    element.href = URL.createObjectURL(file)
-    element.download = 'episode-complete-script.txt'
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
-  }
-
-  const handleSceneContentChange = (newContent: string) => {
-    const updatedScenes = [...scenes]
-    updatedScenes[currentSceneIndex] = { ...updatedScenes[currentSceneIndex], content: newContent }
-    setScenes(updatedScenes)
-  }
-
-  const handleSceneTitleChange = (newTitle: string) => {
-    const updatedScenes = [...scenes]
-    updatedScenes[currentSceneIndex] = { ...updatedScenes[currentSceneIndex], title: newTitle }
-    setScenes(updatedScenes)
-  }
-
-  const addNewScene = () => {
-    const newScene: Scene = { id: (scenes.length + 1).toString(), title: `المشهد ${scenes.length + 1}`, content: '' }
-    setScenes([...scenes, newScene])
-    setCurrentSceneIndex(scenes.length)
-  }
-
-  const deleteScene = (sceneIndex: number) => {
-    if (scenes.length <= 1) {
-      alert('لا يمكن حذف المشهد الوحيد!')
-      return
-    }
-    const updatedScenes = scenes.filter((_, index) => index !== sceneIndex)
-    setScenes(updatedScenes)
-    if (currentSceneIndex >= updatedScenes.length) setCurrentSceneIndex(updatedScenes.length - 1)
-  }
-
-  const navigateToScene = (direction: 'prev' | 'next') => {
-    if (direction === 'prev' && currentSceneIndex > 0) setCurrentSceneIndex(currentSceneIndex - 1)
-    else if (direction === 'next' && currentSceneIndex < scenes.length - 1)
-      setCurrentSceneIndex(currentSceneIndex + 1)
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              نص الحلقة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="mr-2">جاري تحميل النصوص...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -188,9 +84,18 @@ export default function TextTab() {
                 <Upload className="h-4 w-4" />
                 استيراد ملف
               </Button>
-              <Button variant="outline" size="sm" onClick={saveContent}>
-                <Save className="h-4 w-4" />
-                حفظ
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={saveScenes}
+                disabled={isSaving || isLoading}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {isSaving ? 'جاري الحفظ...' : 'حفظ'}
               </Button>
               <Button variant="outline" size="sm" onClick={exportContent}>
                 <Download className="h-4 w-4" />
@@ -360,8 +265,6 @@ export default function TextTab() {
             </CardContent>
           </Card>
         </div>
-
-
       </div>
     </div>
   )

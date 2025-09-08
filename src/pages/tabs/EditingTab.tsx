@@ -33,6 +33,7 @@ import {
   Split,
   Crop
 } from 'lucide-react'
+import TabHeader from '../../components/TabHeader'
 
 interface EditingClip {
   id: string
@@ -213,22 +214,22 @@ export default function EditingTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">إدارة المونتاج</h1>
-          <p className="text-muted-foreground">تحرير ومونتاج المقاطع والمشاهد النهائية</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline">
-            <Upload className="h-4 w-4" />
-            رفع مقطع
-          </Button>
-          <Button>
-            <Plus className="h-4 w-4" />
-            مقطع جديد
-          </Button>
-        </div>
-      </div>
+      <TabHeader
+        title="إدارة المونتاج"
+        description="تحرير ومونتاج المقاطع والمشاهد النهائية"
+        actions={(
+          <>
+            <Button variant="outline">
+              <Upload className="h-4 w-4" />
+              رفع مقطع
+            </Button>
+            <Button>
+              <Plus className="h-4 w-4" />
+              مقطع جديد
+            </Button>
+          </>
+        )}
+      />
 
       {/* Project Info */}
       <Card>

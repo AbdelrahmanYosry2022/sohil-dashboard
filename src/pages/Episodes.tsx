@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
-import { Header } from '../components/ui/header'
 import { Button } from '../components/ui/button'
 import { episodeOperations } from '../lib/supabase'
 import { Episode } from '../lib/types'
 import { Plus, Loader2 } from 'lucide-react'
+import { EpisodeDetailHeader } from '../components/EpisodeDetailHeader'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Episodes() {
   const [episodes, setEpisodes] = useState<Episode[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const { signOut } = useAuth()
 
   useEffect(() => {
     loadEpisodes()
@@ -22,7 +25,11 @@ export default function Episodes() {
       setLoading(true)
       setError(null)
       const data = await episodeOperations.getAll()
-      setEpisodes(data)
+      const normalized = (data || []).map((e: any) => ({
+        ...e,
+        status: e?.status === 'draft' || e?.status === 'in_progress' || e?.status === 'completed' ? e.status : 'draft',
+      })) as Episode[]
+      setEpisodes(normalized)
     } catch (err) {
       console.error('Error loading episodes:', err)
       setError('فشل في تحميل الحلقات. يرجى المحاولة مرة أخرى.')
@@ -65,9 +72,20 @@ export default function Episodes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container py-8 space-y-6">
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="sticky top-0 z-50 bg-background border-b">
+          <EpisodeDetailHeader
+            title="الحلقات"
+            onHome={() => navigate('/')}
+            onEpisodes={() => navigate('/episodes')}
+            showHomeButton={true}
+            showEpisodesButton={false}
+            showStats={false}
+            showDescription={false}
+            onLogout={() => signOut()}
+          />
+        </div>
+        <main className="flex-1 container py-8 space-y-6">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin" />
             <span className="mr-2">جاري تحميل الحلقات...</span>
@@ -79,9 +97,20 @@ export default function Episodes() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container py-8 space-y-6">
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="sticky top-0 z-50 bg-background border-b">
+          <EpisodeDetailHeader
+            title="الحلقات"
+            onHome={() => navigate('/')}
+            onEpisodes={() => navigate('/episodes')}
+            showHomeButton={true}
+            showEpisodesButton={false}
+            showStats={false}
+            showDescription={false}
+            onLogout={() => signOut()}
+          />
+        </div>
+        <main className="flex-1 container py-8 space-y-6">
           <div className="text-center py-12">
             <p className="text-red-500 mb-4">{error}</p>
             <Button onClick={loadEpisodes}>إعادة المحاولة</Button>
@@ -92,10 +121,21 @@ export default function Episodes() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="sticky top-0 z-50 bg-background border-b">
+        <EpisodeDetailHeader
+          title="الحلقات"
+          onHome={() => navigate('/')}
+          onEpisodes={() => navigate('/episodes')}
+          showHomeButton={true}
+          showEpisodesButton={false}
+          showStats={false}
+          showDescription={false}
+          onLogout={() => signOut()}
+        />
+      </div>
 
-      <main className="container py-8 space-y-6">
+      <main className="flex-1 container py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold tracking-tight">قائمة الحلقات</h1>

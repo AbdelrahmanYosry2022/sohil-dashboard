@@ -4,16 +4,15 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Badge } from "../../components/ui/badge";
 import { Separator } from "../../components/ui/separator";
-import { 
-  Upload, 
-  Play, 
-  Pause, 
-  Square, 
-  Volume2, 
+import {
+  Upload,
+  Play,
+  Pause,
+  Square,
+  Volume2,
   VolumeX,
   SkipBack,
   SkipForward,
@@ -30,8 +29,12 @@ import {
   Link,
   Unlink,
   Eye,
-  RotateCcw
+  RotateCcw,
+  Loader2
 } from "lucide-react";
+import { tabOperations } from '../../lib/supabase'
+import { useParams } from 'react-router-dom'
+import TabHeader from '../../components/TabHeader'
 
 // Audio file interface
 interface AudioFile {
@@ -55,41 +58,10 @@ interface Scene {
 }
 
 export default function AudioTab() {
+  const { id: episodeId } = useParams()
+
   // Audio files state
-  const [audioFiles, setAudioFiles] = useState<AudioFile[]>([
-    {
-      id: '1',
-      name: 'افتتاحية_الحلقة.mp3',
-      url: '/audio/sample1.mp3',
-      duration: 45,
-      size: 2.1,
-      type: 'audio/mp3',
-      sceneId: '1',
-      notes: 'الموسيقى الافتتاحية للحلقة',
-      createdAt: new Date('2024-01-15')
-    },
-    {
-      id: '2', 
-      name: 'حوار_المشهد_الثاني.wav',
-      url: '/audio/sample2.wav',
-      duration: 120,
-      size: 5.8,
-      type: 'audio/wav',
-      sceneId: '2',
-      notes: 'تسجيل الحوار الرئيسي',
-      createdAt: new Date('2024-01-16')
-    },
-    {
-      id: '3',
-      name: 'مؤثرات_صوتية.mp3',
-      url: '/audio/sample3.mp3', 
-      duration: 30,
-      size: 1.2,
-      type: 'audio/mp3',
-      notes: 'مؤثرات صوتية متنوعة',
-      createdAt: new Date('2024-01-17')
-    }
-  ]);
+  const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
 
   // Scenes data (would normally come from parent or API)
   const [scenes] = useState<Scene[]>([
@@ -104,29 +76,94 @@ export default function AudioTab() {
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  
+
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  
+
   // UI state
   const [selectedFile, setSelectedFile] = useState<AudioFile | null>(null);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [newNotes, setNewNotes] = useState('');
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Refs
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Load audio files on component mount
+  useEffect(() => {
+    if (episodeId) {
+      loadAudioFiles();
+    }
+  }, [episodeId]);
+
+  // Cleanup blob URLs on component unmount
+  useEffect(() => {
+    return () => {
+      audioFiles.forEach(file => {
+        if (file.url.startsWith('blob:')) {
+          URL.revokeObjectURL(file.url);
+        }
+      });
+    };
+  }, [audioFiles]);
+  const loadAudioFiles = async () => {
+    try {
+      setIsLoading(true)
+      const loadedFiles = await tabOperations.audio.loadAudioFiles(episodeId!)
+      if (loadedFiles.length > 0) {
+        setAudioFiles(loadedFiles)
+      } else {
+        // Initialize with default files if none exist
+        // Initialize with empty array - no default files
+        setAudioFiles([])
+      }
+    } catch (error) {
+      console.error('Error loading audio files:', error)
+      // Initialize with empty array on error
+      setAudioFiles([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const saveAudioFiles = async () => {
+    if (!episodeId) return
+
+    try {
+      setIsSaving(true)
+      await tabOperations.audio.saveAudioFiles(episodeId, audioFiles)
+      console.log('تم حفظ جميع ملفات الصوت بنجاح')
+    } catch (error) {
+      console.error('Error saving audio files:', error)
+      alert('حدث خطأ أثناء حفظ ملفات الصوت. يرجى المحاولة مرة أخرى.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   // Audio player functions
-  const playAudio = (file: AudioFile) => {
-    if (currentAudio?.id === file.id && isPlaying) {
+  const playAudio = async (audioFile: AudioFile) => {
+    if (currentAudio?.id === audioFile.id && isPlaying) {
       pauseAudio();
     } else {
-      setCurrentAudio(file);
-      setIsPlaying(true);
+      try {
+        setCurrentAudio(audioFile);
+        setIsPlaying(true);
+        
+        // Check if URL is valid
+        if (audioFile.url.startsWith('blob:')) {
+          // For blob URLs, we can't validate them easily, just try to play
+          console.info('Playing blob URL audio file');
+        }
+      } catch (error) {
+        console.error('Error setting up audio playback:', error);
+        setIsPlaying(false);
+      }
     }
   };
 
@@ -167,9 +204,11 @@ export default function AudioTab() {
   };
 
   // File upload function
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files) {
+    if (files && episodeId) {
+      const newFiles: AudioFile[] = [];
+      
       Array.from(files).forEach((file) => {
         if (file.type.startsWith('audio/')) {
           const newAudioFile: AudioFile = {
@@ -182,9 +221,22 @@ export default function AudioTab() {
             notes: '',
             createdAt: new Date()
           };
-          setAudioFiles(prev => [...prev, newAudioFile]);
+          newFiles.push(newAudioFile);
         }
       });
+      
+      if (newFiles.length > 0) {
+        // Add files to state immediately
+        setAudioFiles(prev => [...prev, ...newFiles]);
+        
+        // Save to database
+        try {
+          const allFiles = [...audioFiles, ...newFiles];
+          await tabOperations.audio.saveAudioFiles(episodeId, allFiles);
+        } catch (error) {
+          console.error('Error saving uploaded files:', error);
+        }
+      }
     }
   };
 
@@ -200,7 +252,7 @@ export default function AudioTab() {
         chunks.push(event.data);
       };
       
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         const blob = new Blob(chunks, { type: 'audio/wav' });
         const url = URL.createObjectURL(blob);
         const newRecording: AudioFile = {
@@ -213,7 +265,20 @@ export default function AudioTab() {
           notes: 'تسجيل جديد',
           createdAt: new Date()
         };
-        setAudioFiles(prev => [...prev, newRecording]);
+        
+        // Add to state immediately
+        setAudioFiles(prev => {
+          const updatedFiles = [...prev, newRecording];
+          
+          // Save to database if episodeId exists
+          if (episodeId) {
+            tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+              .catch(error => console.error('Error saving recording:', error));
+          }
+          
+          return updatedFiles;
+        });
+        
         setRecordingTime(0);
       };
       
@@ -239,16 +304,36 @@ export default function AudioTab() {
   };
 
   // Scene linking functions
-  const linkToScene = (fileId: string, sceneId: string) => {
-    setAudioFiles(prev => prev.map(file => 
-      file.id === fileId ? { ...file, sceneId } : file
-    ));
+  const linkToScene = async (fileId: string, sceneId: string) => {
+    setAudioFiles(prev => {
+      const updatedFiles = prev.map(file => 
+        file.id === fileId ? { ...file, sceneId } : file
+      );
+      
+      // Save to database if episodeId exists
+      if (episodeId) {
+        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+          .catch(error => console.error('Error saving scene link:', error));
+      }
+      
+      return updatedFiles;
+    });
   };
 
-  const unlinkFromScene = (fileId: string) => {
-    setAudioFiles(prev => prev.map(file => 
-      file.id === fileId ? { ...file, sceneId: undefined } : file
-    ));
+  const unlinkFromScene = async (fileId: string) => {
+    setAudioFiles(prev => {
+      const updatedFiles = prev.map(file => 
+        file.id === fileId ? { ...file, sceneId: undefined } : file
+      );
+      
+      // Save to database if episodeId exists
+      if (episodeId) {
+        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+          .catch(error => console.error('Error saving scene unlink:', error));
+      }
+      
+      return updatedFiles;
+    });
   };
 
   // Notes editing functions
@@ -257,16 +342,44 @@ export default function AudioTab() {
     setNewNotes(currentNotes || '');
   };
 
-  const saveNotes = (fileId: string) => {
-    setAudioFiles(prev => prev.map(file => 
-      file.id === fileId ? { ...file, notes: newNotes } : file
-    ));
+  const saveNotes = async (fileId: string) => {
+    setAudioFiles(prev => {
+      const updatedFiles = prev.map(file => 
+        file.id === fileId ? { ...file, notes: newNotes } : file
+      );
+      
+      // Save to database if episodeId exists
+      if (episodeId) {
+        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+          .catch(error => console.error('Error saving notes:', error));
+      }
+      
+      return updatedFiles;
+    });
+    
     setEditingNotes(null);
     setNewNotes('');
   };
 
-  const deleteFile = (fileId: string) => {
-    setAudioFiles(prev => prev.filter(file => file.id !== fileId));
+  const deleteFile = async (fileId: string) => {
+    // Find the file to clean up its blob URL
+    const fileToDelete = audioFiles.find(file => file.id === fileId);
+    if (fileToDelete && fileToDelete.url.startsWith('blob:')) {
+      URL.revokeObjectURL(fileToDelete.url);
+    }
+    
+    setAudioFiles(prev => {
+      const updatedFiles = prev.filter(file => file.id !== fileId);
+      
+      // Save to database if episodeId exists
+      if (episodeId) {
+        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+          .catch(error => console.error('Error deleting file:', error));
+      }
+      
+      return updatedFiles;
+    });
+    
     if (currentAudio?.id === fileId) {
       stopAudio();
       setCurrentAudio(null);
@@ -290,7 +403,14 @@ export default function AudioTab() {
     if (currentAudio && audioRef.current) {
       audioRef.current.src = currentAudio.url;
       if (isPlaying) {
-        audioRef.current.play();
+        audioRef.current.play().catch(error => {
+          console.error('Error playing audio:', error);
+          setIsPlaying(false);
+          // Show user-friendly error message
+          if (currentAudio.url.startsWith('blob:')) {
+            console.warn('Blob URL may have expired. Please re-upload the file.');
+          }
+        });
       }
     }
   }, [currentAudio, isPlaying]);
@@ -322,6 +442,17 @@ export default function AudioTab() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="mr-2">جاري تحميل ملفات الصوت...</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Hidden audio element */}
@@ -334,7 +465,7 @@ export default function AudioTab() {
             // Update duration if not set
             const duration = audioRef.current.duration;
             if (duration && duration !== currentAudio.duration) {
-              setAudioFiles(prev => prev.map(file => 
+              setAudioFiles(prev => prev.map(file =>
                 file.id === currentAudio.id ? { ...file, duration } : file
               ));
               // Ensure currentAudio state reflects the new duration so the progress dot moves correctly
@@ -355,38 +486,48 @@ export default function AudioTab() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">إدارة الصوت</h1>
-          <p className="text-muted-foreground">رفع وتحرير وربط الملفات الصوتية بالمشاهد</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            رفع ملفات صوتية
-          </Button>
-          <Button
-            variant={isRecording ? "destructive" : "outline"}
-            onClick={isRecording ? stopRecording : startRecording}
-            className="flex items-center gap-2"
-          >
-            {isRecording ? (
-              <>
-                <Square className="h-4 w-4" />
-                إيقاف التسجيل ({formatTime(recordingTime)})
-              </>
-            ) : (
-              <>
-                <Mic className="h-4 w-4" />
-                تسجيل جديد
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+      <TabHeader
+        title="إدارة الصوت"
+        description="رفع وتحرير وربط الملفات الصوتية بالمشاهد"
+        actions={(
+          <>
+            <Button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              رفع ملفات صوتية
+            </Button>
+            <div className="text-sm text-muted-foreground">
+              ملاحظة: الملفات المرفوعة محلياً قد لا تعمل بعد إعادة تحميل الصفحة
+            </div>
+            <Button
+              variant={isRecording ? 'destructive' : 'outline'}
+              onClick={isRecording ? stopRecording : startRecording}
+              className="flex items-center gap-2"
+              disabled={isLoading}
+            >
+              {isRecording ? (
+                <>
+                  <Square className="h-4 w-4" />
+                  إيقاف التسجيل ({formatTime(recordingTime)})
+                </>
+              ) : (
+                <>
+                  <Mic className="h-4 w-4" />
+                  تسجيل جديد
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={saveAudioFiles}
+              disabled={isSaving || isLoading}
+              className="flex items-center gap-2"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {isSaving ? 'جاري الحفظ...' : 'حفظ'}
+            </Button>
+          </>
+        )}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Audio Player */}

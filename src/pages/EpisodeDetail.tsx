@@ -25,7 +25,7 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { EpisodeDetailHeader } from '../components/EpisodeDetailHeader'
-import { episodeOperations } from '../lib/supabase'
+import { episodeOperations, statisticsOperations } from '../lib/supabase'
 import { Episode } from '../lib/types'
 
 type TabKey =
@@ -90,16 +90,18 @@ export default function EpisodeDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <EpisodeDetailHeader
-          title="جاري التحميل..."
-          onHome={() => navigate('/')}
-          onEpisodes={() => navigate('/episodes')}
-        />
-        <main className="container py-8 space-y-6">
-          <div className="flex items-center justify-center py-12">
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="sticky top-0 z-50 bg-background border-b">
+          <EpisodeDetailHeader
+            title="جاري التحميل..."
+            onHome={() => navigate('/')}
+            onEpisodes={() => navigate('/episodes')}
+          />
+        </div>
+        <main className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin" />
-            <span className="mr-2">جاري تحميل بيانات الحلقة...</span>
+            <span>جاري تحميل بيانات الحلقة...</span>
           </div>
         </main>
       </div>
@@ -131,26 +133,31 @@ export default function EpisodeDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <EpisodeDetailHeader
-        title={title}
-        onHome={() => navigate('/')}
-        onEpisodes={() => navigate('/episodes')}
-      />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Fixed Header */}
+      <div className="sticky top-0 z-50 bg-background border-b">
+        <EpisodeDetailHeader
+          title={title}
+          onHome={() => navigate('/')}
+          onEpisodes={() => navigate('/episodes')}
+        />
+      </div>
 
-      <main className="container py-8 space-y-6">
+      {/* Main Content with Fixed Sidebar (centered container) */}
+      <div className="flex-1">
+        <div className="container mx-auto flex">
+          {/* Fixed Sidebar */}
+          <aside className="w-[260px] shrink-0 sticky top-[80px] h-[calc(100vh-80px)] overflow-y-auto p-4">
+            <EpisodeSidebar
+              items={TABS}
+              active={active}
+              onChange={(k) => setActive(k)}
+            />
+          </aside>
 
-        {/* تخطيط بعمودين: سايدبار عائم وكومبوز محتوى */}
-        <div className="grid gap-6 lg:grid-cols-[260px_1fr] items-start">
-          {/* Sidebar extracted to its own component */}
-          <EpisodeSidebar
-            items={TABS}
-            active={active}
-            onChange={(k) => setActive(k)}
-          />
-
-          {/* Content */}
-          <section className="space-y-6">
+          {/* Scrollable Content */}
+          <main className="flex-1 p-6 overflow-y-auto">
+            <section className="space-y-6 max-w-5xl">
             {active === 'overview' && <OverviewSection episode={episode} />}
             {active === 'script' && <TextTab />}
             {active === 'audio' && <AudioTab />}
@@ -173,14 +180,46 @@ export default function EpisodeDetail() {
                 </CardContent>
               </Card>
             )}
-          </section>
+            </section>
+          </main>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
 
 function OverviewSection({ episode }: { episode: Episode }) {
+  const [statsData, setStatsData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadEpisodeStats()
+  }, [episode.id])
+
+  const loadEpisodeStats = async () => {
+    try {
+      setLoading(true)
+      const stats = await statisticsOperations.getEpisodeStats(episode.id)
+      setStatsData(stats)
+    } catch (error) {
+      console.error('Error loading episode stats:', error)
+      setStatsData(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const formatFileSize = (mb: number) => {
+    if (mb < 1) return `${(mb * 1024).toFixed(0)} KB`
+    return `${mb.toFixed(1)} MB`
+  }
+
   // حساب الإحصائيات بناءً على بيانات الحلقة
   const stats = [
     {
@@ -189,9 +228,21 @@ function OverviewSection({ episode }: { episode: Episode }) {
              episode.status === 'in_progress' ? 'قيد التنفيذ' : 'مسودة',
       hint: `تم الإنشاء ${new Date(episode.created_at).toLocaleDateString('ar-EG')}`
     },
-    { title: 'عدد المشاهد', value: 0, hint: 'لم يتم تحديدها بعد' },
-    { title: 'المدة المتوقعة', value: '--:--', hint: 'لم يتم تحديدها بعد' },
-    { title: 'آخر تحديث', value: new Date(episode.updated_at).toLocaleDateString('ar-EG'), hint: 'تاريخ آخر تعديل' },
+    {
+      title: 'عدد المشاهد',
+      value: loading ? 'جاري التحميل...' : (statsData?.text?.scenes || 0),
+      hint: 'من النص والرسم والستوري بورد'
+    },
+    {
+      title: 'المدة المتوقعة',
+      value: loading ? 'جاري التحميل...' : (statsData?.audio?.totalDuration ? formatTime(statsData.audio.totalDuration) : '--:--'),
+      hint: 'بناءً على ملفات الصوت'
+    },
+    {
+      title: 'آخر تحديث',
+      value: new Date(episode.updated_at).toLocaleDateString('ar-EG'),
+      hint: 'تاريخ آخر تعديل'
+    },
   ]
 
   return (
@@ -226,22 +277,46 @@ function OverviewSection({ episode }: { episode: Episode }) {
           <CardDescription>تقدّم كل مرحلة رئيسية</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {[
-            { label: 'النص', value: 90 },
-            { label: 'الصوت', value: 55 },
-            { label: 'الرسم', value: 40 },
-            { label: 'التحريك', value: 25 },
-            { label: 'المونتاج', value: 60 },
-            { label: 'المشاهد النهائية', value: 10 },
-          ].map((r) => (
-            <div key={r.label} className="space-y-1.5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{r.label}</span>
-                <span className="font-medium">{r.value}%</span>
-              </div>
-              <Progress value={r.value} />
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="mr-2">جاري تحميل الإحصائيات...</span>
             </div>
-          ))}
+          ) : (
+            [
+              {
+                label: 'النص',
+                value: statsData?.text?.scenes > 0 ? Math.min(100, (statsData.text.scenes / 10) * 100) : 0,
+                details: `${statsData?.text?.scenes || 0} مشهد، ${statsData?.text?.words || 0} كلمة`
+              },
+              {
+                label: 'الصوت',
+                value: statsData?.audio?.files > 0 ? Math.min(100, (statsData.audio.files / 5) * 100) : 0,
+                details: `${statsData?.audio?.files || 0} ملف، ${formatTime(statsData?.audio?.totalDuration || 0)}`
+              },
+              {
+                label: 'الستوري بورد',
+                value: statsData?.storyboard?.frames > 0 ? Math.min(100, (statsData.storyboard.frames / 15) * 100) : 0,
+                details: `${statsData?.storyboard?.frames || 0} إطار، ${statsData?.storyboard?.scenes || 0} مشهد`
+              },
+              {
+                label: 'الرسم',
+                value: statsData?.drawing?.scenes > 0 ? Math.min(100, ((statsData.drawing.scenes - statsData.drawing.approved) / statsData.drawing.scenes) * 100) : 0,
+                details: `${statsData?.drawing?.scenes || 0} مشهد، ${statsData?.drawing?.comments || 0} تعليق`
+              },
+              { label: 'التحريك', value: 25, details: 'لم يبدأ بعد' },
+              { label: 'المونتاج', value: 10, details: 'في المراحل الأولى' },
+            ].map((r) => (
+              <div key={r.label} className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{r.label}</span>
+                  <span className="font-medium">{Math.round(r.value)}%</span>
+                </div>
+                <Progress value={r.value} />
+                <div className="text-xs text-muted-foreground">{r.details}</div>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 

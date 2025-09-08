@@ -63,3 +63,21 @@ CREATE POLICY "Enable read access for all users" ON episode_content FOR SELECT U
 CREATE POLICY "Enable insert for authenticated users" ON episode_content FOR INSERT WITH CHECK (true);
 CREATE POLICY "Enable update for authenticated users" ON episode_content FOR UPDATE USING (true);
 CREATE POLICY "Enable delete for authenticated users" ON episode_content FOR DELETE USING (true);
+
+-- إنشاء bucket للصور إذا لم يكن موجوداً
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('storyboard-images', 'storyboard-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- سياسات Storage للسماح بالوصول للملفات
+CREATE POLICY "Allow public read access" ON storage.objects
+FOR SELECT USING (bucket_id = 'storyboard-images');
+
+CREATE POLICY "Allow authenticated users to upload" ON storage.objects
+FOR INSERT WITH CHECK (bucket_id = 'storyboard-images');
+
+CREATE POLICY "Allow authenticated users to update" ON storage.objects
+FOR UPDATE USING (bucket_id = 'storyboard-images');
+
+CREATE POLICY "Allow authenticated users to delete" ON storage.objects
+FOR DELETE USING (bucket_id = 'storyboard-images');

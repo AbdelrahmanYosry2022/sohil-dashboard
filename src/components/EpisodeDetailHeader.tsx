@@ -17,9 +17,14 @@ interface EpisodeDetailHeaderProps {
   description?: string
   onHome: () => void
   onEpisodes: () => void
+  showHomeButton?: boolean
+  showEpisodesButton?: boolean
+  showStats?: boolean
+  showDescription?: boolean
+  onLogout?: () => void
 }
 
-export function EpisodeDetailHeader({ title, description, onHome, onEpisodes }: EpisodeDetailHeaderProps) {
+export function EpisodeDetailHeader({ title, description, onHome, onEpisodes, showHomeButton = true, showEpisodesButton = true, showStats = true, showDescription = true, onLogout }: EpisodeDetailHeaderProps) {
   return (
     <header className="border-b">
       <div className="container py-4">
@@ -35,45 +40,53 @@ export function EpisodeDetailHeader({ title, description, onHome, onEpisodes }: 
             <div className="flex items-center gap-6">
               <div>
                 <h1 className="text-xl font-semibold leading-tight">{title}</h1>
-                {description ? (
-                  <p className="text-sm text-muted-foreground">{description}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">وصف مختصر جدًا عن الحلقة الحالية</p>
+                {showDescription && (
+                  description ? (
+                    <p className="text-sm text-muted-foreground">{description}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">وصف مختصر جدًا عن الحلقة الحالية</p>
+                  )
                 )}
               </div>
-              <div className="hidden sm:flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">مشاهد:</span>
-                  <span className="font-medium">28</span>
+              {showStats && (
+                <div className="hidden sm:flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">مشاهد:</span>
+                    <span className="font-medium">28</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">التقدم:</span>
+                    <span className="font-medium">72%</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">التقدم:</span>
-                  <span className="font-medium">72%</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
           {/* Left: Home, Episodes, Profile (profile last) */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full h-11 w-11 md:h-12 md:w-12"
-              aria-label="الصفحة الرئيسية"
-              onClick={onHome}
-            >
-              <Home className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full h-11 w-11 md:h-12 md:w-12"
-              aria-label="الرجوع للحلقات"
-              onClick={onEpisodes}
-            >
-              <List className="h-5 w-5" />
-            </Button>
+            {showHomeButton && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-11 w-11 md:h-12 md:w-12"
+                aria-label="الصفحة الرئيسية"
+                onClick={onHome}
+              >
+                <Home className="h-5 w-5" />
+              </Button>
+            )}
+            {showEpisodesButton && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full h-11 w-11 md:h-12 md:w-12"
+                aria-label="الرجوع للحلقات"
+                onClick={onEpisodes}
+              >
+                <List className="h-5 w-5" />
+              </Button>
+            )}
 
             {/* Profile with dropdown - last on the left */}
             <DropdownMenu>
@@ -91,7 +104,7 @@ export function EpisodeDetailHeader({ title, description, onHome, onEpisodes }: 
                 <DropdownMenuItem>الملف الشخصي</DropdownMenuItem>
                 <DropdownMenuItem>الإعدادات</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">تسجيل الخروج</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive" onClick={() => onLogout?.()}>تسجيل الخروج</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
