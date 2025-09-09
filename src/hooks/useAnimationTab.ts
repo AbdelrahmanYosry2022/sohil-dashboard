@@ -1,5 +1,16 @@
-import React, { useState } from 'react';
-import { CheckCircle, AlertCircle, Clock, User, Film, Zap, Workflow, Clapperboard } from 'lucide-react';
+import * as React from 'react';
+import { useState } from 'react';
+import { 
+  CheckCircle, 
+  AlertCircle, 
+  Clock, 
+  User, 
+  Film, 
+  Zap, 
+  Workflow, 
+  Clapperboard,
+  LucideIcon
+} from 'lucide-react';
 
 interface AnimationSequence {
   id: string
@@ -132,22 +143,20 @@ export const useAnimationTab = () => {
     }
   }
 
-  const getStatusIcon = (status: AnimationSequence['status']) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="h-4 w-4" />
-      case 'revision': return <AlertCircle className="h-4 w-4" />
-      default: return <Clock className="h-4 w-4" />
-    }
+  const getStatusIcon = (status: AnimationSequence['status']): React.ReactElement => {
+    const icon = status === 'approved' ? CheckCircle :
+                status === 'revision' ? AlertCircle :
+                Clock;
+    return React.createElement(icon, { className: "h-4 w-4" });
   }
 
-  const getTypeIcon = (type: AnimationSequence['type']) => {
-    switch (type) {
-      case 'character': return <User className="h-4 w-4" />
-      case 'camera': return <Film className="h-4 w-4" />
-      case 'effect': return <Zap className="h-4 w-4" />
-      case 'transition': return <Workflow className="h-4 w-4" />
-      default: return <Clapperboard className="h-4 w-4" />
-    }
+  const getTypeIcon = (type: AnimationSequence['type']): React.ReactElement => {
+    const icon = type === 'character' ? User :
+                type === 'camera' ? Film :
+                type === 'effect' ? Zap :
+                type === 'transition' ? Workflow :
+                Clapperboard;
+    return React.createElement(icon, { className: "h-4 w-4" });
   }
 
   const formatTime = (seconds: number) => {

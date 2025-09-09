@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../types/supabase'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// Environment variables are typed in src/env.d.ts
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env.local file.')
@@ -97,20 +98,26 @@ export const authOperations = {
 }
 
 // Updated authentication check for storage operations
-export const ensureAuthenticated = async (): Promise<boolean> => {
+export const ensureAuthenticated = async (): Promise<{ isAuthenticated: boolean; error?: string }> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error } = await supabase.auth.getUser()
     
-    if (!user) {
-      console.log('🔐 No user authenticated - storage operations require login')
-      return false
+    if (error || !user) {
+      console.warn('🔐 Authentication required:', error?.message || 'No active session')
+      return { 
+        isAuthenticated: false, 
+        error: error?.message || 'يجب تسجيل الدخول أولاً' 
+      }
     }
     
     console.log('✅ User authenticated:', user.email)
-    return true
+    return { isAuthenticated: true }
   } catch (error) {
     console.error('❌ Authentication check failed:', error)
-    return false
+    return { 
+      isAuthenticated: false, 
+      error: 'حدث خطأ في التحقق من المصادقة' 
+    }
   }
 }
 
@@ -122,6 +129,48 @@ export type EpisodeUpdate = Database['public']['Tables']['episodes']['Update']
 export type EpisodeContent = Database['public']['Tables']['episode_content']['Row']
 export type EpisodeContentInsert = Database['public']['Tables']['episode_content']['Insert']
 export type EpisodeContentUpdate = Database['public']['Tables']['episode_content']['Update']
+
+// Define proper types for content objects
+type SceneContent = {
+  sceneId: string
+  title: string
+  content: string
+  duration: number
+  order: number
+}
+
+type AudioContent = {
+  fileId: string
+  name: string
+  url: string
+  duration: number
+  size: number
+  type: string
+  sceneId?: string
+  notes?: string
+  createdAt?: string
+}
+
+type StoryboardFrame = {
+  frameId: string
+  title: string
+  description?: string
+  thumbnail: string
+  duration: number
+  notes?: string
+  order: number
+  sceneId?: string
+}
+
+type StoryboardFolders = {
+  type: 'folders'
+  folders: Array<{
+    id: string
+    name: string
+    parentId: string | null
+    order: number
+  }>
+}
 
 // Helper functions for database operations
 export const episodeOperations = {
@@ -303,138 +352,201 @@ export const contentOperations = {
 export const tabOperations = {
   // Text Tab Operations
   text: {
-    async saveScenes(episodeId: string, scenes: any[]) {
-      // First, remove existing text content for this episode
-      const existing = await contentOperations.getByEpisodeIdAndType(episodeId, 'text')
-      for (const item of existing) {
-        await contentOperations.delete(item.id)
+    async saveScenes(episodeId: string, scenes: Array<{
+      id: string;
+      title: string;
+      content: string;
+      duration?: number;
+    }>) {
+      try {
+        // First, remove existing text content for this episode
+        const existing = await contentOperations.getByEpisodeIdAndType(episodeId, 'text')
+        const deletePromises = existing.map(item => contentOperations.delete(item.id))
+        await Promise.all(deletePromises)
+
+        // Save new scenes
+        const createPromises = scenes.map((scene, index) =>
+          contentOperations.create({
+            episode_id: episodeId,
+            type: 'text',
+            content: {
+              sceneId: scene.id,
+              title: scene.title || 'Untitled Scene',
+              content: scene.content || '',
+              duration: scene.duration || 0,
+              order: index + 1
+            }
+          })
+        )
+
+        return await Promise.all(createPromises)
+      } catch (error) {
+        console.error('Failed to save scenes:', error)
+        throw new Error('فشل في حفظ المشاهد. يرجى المحاولة مرة أخرى')
       }
-
-      // Save new scenes
-      const promises = scenes.map(scene =>
-        contentOperations.create({
-          episode_id: episodeId,
-          type: 'text',
-          content: {
-            sceneId: scene.id,
-            title: scene.title,
-            content: scene.content,
-            duration: scene.duration,
-            order: scenes.indexOf(scene) + 1
-          }
-        })
-      )
-
-      return Promise.all(promises)
     },
 
     async loadScenes(episodeId: string) {
-      const data = await contentOperations.getByEpisodeIdAndType(episodeId, 'text')
-      return data.map(item => ({
-        id: item.content.sceneId || item.id,
-        title: item.content.title || '',
-        content: item.content.content || '',
-        duration: item.content.duration
-      })).sort((a, b) => (item => item.content.order || 0))
+      try {
+        const data = await contentOperations.getByEpisodeIdAndType(episodeId, 'text')
+        return data
+          .map(item => {
+            const content = item.content as {
+              sceneId?: string;
+              title?: string;
+              content?: string;
+              duration?: number;
+              order?: number;
+            }
+            return {
+              id: content.sceneId || item.id,
+              title: content.title || 'Untitled Scene',
+              content: content.content || '',
+              duration: content.duration || 0,
+              order: content.order || 0
+            }
+          })
+          .sort((a, b) => (a.order || 0) - (b.order || 0))
+      } catch (error) {
+        console.error('Failed to load scenes:', error)
+        throw new Error('فشل في تحميل المشاهد. يرجى تحديث الصفحة والمحاولة مرة أخرى')
+      }
     }
   },
 
   // Audio Tab Operations
   audio: {
-    async saveAudioFiles(episodeId: string, audioFiles: any[]) {
-      // First, remove existing audio content for this episode
-      const existing = await contentOperations.getByEpisodeIdAndType(episodeId, 'audio')
-      for (const item of existing) {
-        await contentOperations.delete(item.id)
+    async saveAudioFiles(episodeId: string, audioFiles: AudioContent[]) {
+      try {
+        // First, remove existing audio content for this episode
+        const existing = await contentOperations.getByEpisodeIdAndType(episodeId, 'audio')
+        const deletePromises = existing.map(item => contentOperations.delete(item.id))
+        await Promise.all(deletePromises)
+
+        // Save new audio files
+        const createPromises = audioFiles.map(audioFile =>
+          contentOperations.create({
+            episode_id: episodeId,
+            type: 'audio',
+            content: {
+              fileId: audioFile.fileId || crypto.randomUUID(),
+              name: audioFile.name || 'Untitled Audio',
+              url: audioFile.url || '',
+              duration: audioFile.duration || 0,
+              size: audioFile.size || 0,
+              type: audioFile.type || 'audio/mp3',
+              sceneId: audioFile.sceneId,
+              notes: audioFile.notes || '',
+              createdAt: audioFile.createdAt || new Date().toISOString()
+            }
+          })
+        )
+
+        return await Promise.all(createPromises)
+      } catch (error) {
+        console.error('Failed to save audio files:', error)
+        throw new Error('فشل في حفظ ملفات الصوت. يرجى المحاولة مرة أخرى')
       }
-
-      // Save new audio files
-      const promises = audioFiles.map(audioFile =>
-        contentOperations.create({
-          episode_id: episodeId,
-          type: 'audio',
-          content: {
-            fileId: audioFile.id,
-            name: audioFile.name,
-            url: audioFile.url,
-            duration: audioFile.duration,
-            size: audioFile.size,
-            type: audioFile.type,
-            sceneId: audioFile.sceneId,
-            notes: audioFile.notes,
-            createdAt: audioFile.createdAt
-          }
-        })
-      )
-
-      return Promise.all(promises)
     },
 
     async loadAudioFiles(episodeId: string) {
       const data = await contentOperations.getByEpisodeIdAndType(episodeId, 'audio')
-      return data.map(item => ({
-        id: item.content.fileId || item.id,
-        name: item.content.name || '',
-        url: item.content.url || '',
-        duration: item.content.duration || 0,
-        size: item.content.size || 0,
-        type: item.content.type || '',
-        sceneId: item.content.sceneId,
-        notes: item.content.notes || '',
-        createdAt: item.content.createdAt ? new Date(item.content.createdAt) : new Date()
-      }))
+      return data.map(item => {
+        const content = item.content as {
+          fileId?: string;
+          name?: string;
+          url?: string;
+          duration?: number;
+          size?: number;
+          type?: string;
+          sceneId?: string;
+          notes?: string;
+          createdAt?: string;
+        } | null;
+        
+        if (!content) {
+          return {
+            id: item.id,
+            name: '',
+            url: '',
+            duration: 0,
+            size: 0,
+            type: '',
+            sceneId: undefined,
+            notes: '',
+            createdAt: new Date()
+          };
+        }
+        
+        return {
+          id: content.fileId || item.id,
+          name: content.name || '',
+          url: content.url || '',
+          duration: content.duration || 0,
+          size: content.size || 0,
+          type: content.type || '',
+          sceneId: content.sceneId,
+          notes: content.notes || '',
+          createdAt: content.createdAt ? new Date(content.createdAt) : new Date()
+        };
+      })
     }
   },
 
   // Storyboard Tab Operations
   storyboard: {
-    async saveFrames(episodeId: string, frames: any[]) {
+    async saveFrames(episodeId: string, frames: StoryboardFrame[]) {
       // Remove only existing frame items (preserve folders record)
       const existing = await contentOperations.getByEpisodeIdAndType(episodeId, 'storyboard')
-      for (const item of existing) {
-        const c = item.content as any
-        if (c && (c.frameId || (!c.type || c.type !== 'folders'))) {
-          // delete items that look like frames
-          await contentOperations.delete(item.id)
-        }
-      }
-
+      const deletePromises = existing
+        .filter(item => {
+          const content = item.content as StoryboardFrame | StoryboardFolders | null
+          return content && 'frameId' in content
+        })
+        .map(item => contentOperations.delete(item.id))
+      
+      await Promise.all(deletePromises)
+      
       // Save new frames
-      const promises = frames.map(frame =>
+      const createPromises = frames.map((frame, index) =>
         contentOperations.create({
           episode_id: episodeId,
           type: 'storyboard',
           content: {
-            frameId: frame.id,
-            title: frame.title,
-            description: frame.description,
-            thumbnail: frame.thumbnail,
-            duration: frame.duration,
-            notes: frame.notes,
-            order: frame.order,
-            sceneId: frame.sceneId || frame.scene_id || null
+            ...frame,
+            order: index + 1
           }
         })
       )
-
-      return Promise.all(promises)
+      
+      return Promise.all(createPromises)
     },
 
     async loadFrames(episodeId: string) {
       const data = await contentOperations.getByEpisodeIdAndType(episodeId, 'storyboard')
-      return data.map(item => ({
-        id: item.content.frameId || item.id,
-        title: item.content.title || '',
-        description: item.content.description || '',
-        thumbnail: item.content.thumbnail || '',
-        duration: item.content.duration || '2s',
-        notes: item.content.notes || '',
-        order: item.content.order || 1,
-        sceneId: item.content.sceneId || null
-      })).sort((a, b) => a.order - b.order)
+      return data
+        .map(item => {
+          const content = item.content as StoryboardFrame | StoryboardFolders | null
+          if (!content || 'type' in content) return null // Skip folders
+          
+          return {
+            id: item.id,
+            frameId: content.frameId || item.id,
+            title: content.title || 'Untitled Frame',
+            description: content.description || '',
+            thumbnail: content.thumbnail || '',
+            duration: content.duration || 0,
+            notes: content.notes || '',
+            order: content.order || 0,
+            sceneId: content.sceneId
+          }
+        })
+        .filter((frame): frame is NonNullable<typeof frame> => frame !== null)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
     },
 
     async saveFolders(episodeId: string, folders: any[]) {
+      console.log('💾 جاري حفظ المجلدات...', { episodeId, folders });
       // Replace existing folders record
       const existing = await contentOperations.getByEpisodeIdAndType(episodeId, 'storyboard')
       for (const item of existing) {
@@ -460,12 +572,26 @@ export const tabOperations = {
           folders: folderData
         }
       })
+      console.log('✅ تم حفظ المجلدات بنجاح.');
     },
 
     async loadFolders(episodeId: string) {
       const data = await contentOperations.getByEpisodeIdAndType(episodeId, 'storyboard')
-      const folderItem = data.find(item => item.content.type === 'folders')
-      return folderItem ? folderItem.content.folders || [] : null
+      const foldersItem = data.find(item => {
+        const content = item.content as StoryboardFolders | null
+        return content?.type === 'folders'
+      })
+      
+      if (!foldersItem) return []
+      
+      const content = foldersItem.content as StoryboardFolders
+      return content.folders.map(folder => ({
+        id: folder.id,
+        name: folder.name,
+        parentId: folder.parentId,
+        order: folder.order,
+        scenes: [] // Initialize empty scenes array, to be populated by the client if needed
+      }))
     }
   },
 
@@ -505,12 +631,30 @@ export const tabOperations = {
 
     async loadScenes(episodeId: string) {
       const data = await contentOperations.getByEpisodeIdAndType(episodeId, 'drawing')
-      return data.map(item => ({
-        id: item.content.folderId || item.id,
-        name: item.content.name || '',
-        order: item.content.order || 0,
-        scenes: item.content.scenes || []
-      })).sort((a, b) => a.order - b.order)
+      return data.map(item => {
+        const content = item.content as {
+          folderId?: string;
+          name?: string;
+          order?: number;
+          scenes?: any[];
+        } | null;
+        
+        if (!content) {
+          return {
+            id: item.id,
+            name: '',
+            order: 0,
+            scenes: []
+          };
+        }
+        
+        return {
+          id: content.folderId || item.id,
+          name: content.name || '',
+          order: content.order || 0,
+          scenes: content.scenes || []
+        };
+      }).sort((a, b) => a.order - b.order)
     },
 
     async saveVersions(episodeId: string, sceneId: string, versions: any[]) {
@@ -653,7 +797,7 @@ export const storageOperations = {
 
       if (error) {
         console.error('❌ خطأ في رفع الصورة:', error)
-        console.error('تفاصيل الخطأ:', { message: error.message, statusCode: error.statusCode })
+        console.error('تفاصيل الخطأ:', error.message)
         return null
       }
 
@@ -772,38 +916,47 @@ export const statisticsOperations = {
     }
 
     for (const item of allContent) {
+      const content = item.content as any; // Using any here since content structure varies by type
+      
       switch (item.type) {
         case 'text':
           stats.text.scenes++
-          if (item.content.content) {
-            const content = item.content.content
-            stats.text.words += content.trim().split(/\s+/).length
-            stats.text.characters += content.length
-            stats.text.estimatedMinutes += Math.ceil(stats.text.words / 150)
+          if (content?.content && typeof content.content === 'string') {
+            const textContent = content.content;
+            const wordCount = textContent.trim().split(/\s+/).length;
+            stats.text.words += wordCount;
+            stats.text.characters += textContent.length;
+            stats.text.estimatedMinutes = Math.ceil(stats.text.words / 150);
           }
           break
 
         case 'audio':
           stats.audio.files++
-          stats.audio.totalDuration += item.content.duration || 0
-          stats.audio.totalSize += item.content.size || 0
+          if (content) {
+            stats.audio.totalDuration += typeof content.duration === 'number' ? content.duration : 0;
+            stats.audio.totalSize += typeof content.size === 'number' ? content.size : 0;
+          }
           break
 
         case 'storyboard':
-          if (item.content.type === 'folders') {
-            stats.storyboard.scenes += item.content.folders?.length || 0
-          } else {
+          if (content?.type === 'folders' && Array.isArray(content.folders)) {
+            stats.storyboard.scenes += content.folders.length;
+          } else if (content) {
             stats.storyboard.frames++
           }
           break
 
         case 'drawing':
-          if (item.content.scenes) {
-            stats.drawing.scenes += item.content.scenes.length
-            item.content.scenes.forEach((scene: any) => {
-              stats.drawing.comments += scene.comments || 0
-              if (scene.status === 'approved') stats.drawing.approved++
-            })
+          if (Array.isArray(content?.scenes)) {
+            stats.drawing.scenes += content.scenes.length;
+            content.scenes.forEach((scene: any) => {
+              if (typeof scene.comments === 'number') {
+                stats.drawing.comments += scene.comments;
+              }
+              if (scene.status === 'approved') {
+                stats.drawing.approved++;
+              }
+            });
           }
           break
       }

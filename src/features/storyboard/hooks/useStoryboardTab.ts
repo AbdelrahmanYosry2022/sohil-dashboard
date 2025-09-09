@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { storageOperations, tabOperations } from '../lib/supabase'
-import type { StoryboardFrame, Scene, Folder } from '../types/storyboard'
+import { storageOperations, tabOperations } from '../../../lib/supabase'
+import type { StoryboardFrame, Scene, Folder } from '../types'
 
 export const useStoryboardTab = () => {
   const { id: episodeId } = useParams<{ id: string }>()

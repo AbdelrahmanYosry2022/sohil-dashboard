@@ -1,8 +1,8 @@
 import React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
-import { Progress } from '../../components/ui/progress'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Badge } from '../../../components/ui/badge'
+import { Progress } from '../../../components/ui/progress'
 import { 
   Scissors, 
   Play, 
@@ -33,8 +33,8 @@ import {
   Split,
   Crop
 } from 'lucide-react'
-import TabHeader from '../../components/TabHeader'
-import { useEditingTab } from '../../hooks/useEditingTab'
+import TabHeader from '../../../components/TabHeader'
+import { useEditingTab } from '../hooks/useEditingTab'
 
 export default function EditingTab() {
   const {

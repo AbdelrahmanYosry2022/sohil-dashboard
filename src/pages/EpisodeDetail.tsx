@@ -1,92 +1,35 @@
-import { useNavigate, useParams } from 'react-router-dom'
-import { useMemo, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { Progress } from '../components/ui/progress'
 import { Button } from '../components/ui/button'
-import { EpisodeSidebar } from '../components/EpisodeSidebar'
-import TextTab from './tabs/TextTab'
-import { AudioTab } from './tabs/AudioTab'
-import StoryboardTab from './tabs/StoryboardTab'
-import DrawingTab from './tabs/DrawingTab'
-import AnimationTab from './tabs/AnimationTab'
-import EditingTab from './tabs/EditingTab'
+import { Progress } from '../components/ui/progress'
+import { EpisodeSidebar } from '../features/episodes/components/EpisodeSidebar'
+import { Episode } from '../lib/types'
+import TextTab from '../features/text/components/TextTab'
+import { AudioTab } from '../features/audio/components/AudioTab'
+import StoryboardTab from '../features/storyboard/components/StoryboardTab'
+import DrawingTab from '../features/drawing/components/DrawingTab'
+import AnimationTab from '../features/animation/components/AnimationTab'
+import EditingTab from '../features/editing/components/EditingTab'
+import { useEpisodeDetail, TABS } from '../features/episodes/hooks/useEpisodeDetail'
 import {
-  LayoutDashboard,
-  FileText as FileTextIcon,
-  AudioLines,
-  Layers,
-  PencilRuler,
-  Clapperboard,
-  Scissors,
-  Film,
-  Folder,
-  Wallet,
   Loader2,
   AlertCircle,
 } from 'lucide-react'
-import { EpisodeDetailHeader } from '../components/EpisodeDetailHeader'
-import { episodeOperations, statisticsOperations } from '../lib/supabase'
-import { Episode } from '../lib/types'
-
-type TabKey =
-  | 'overview'
-  | 'script'
-  | 'audio'
-  | 'storyboard'
-  | 'draw'
-  | 'animation'
-  | 'edit'
-  | 'final'
-  | 'assets'
-  | 'budget'
-
-const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
-  { key: 'script', label: 'النص', icon: FileTextIcon },
-  { key: 'audio', label: 'الصوت', icon: AudioLines },
-  { key: 'storyboard', label: 'الستوري بورد', icon: Layers },
-  { key: 'draw', label: 'الرسم', icon: PencilRuler },
-  { key: 'animation', label: 'التحريك', icon: Clapperboard },
-  { key: 'edit', label: 'المونتاج', icon: Scissors },
-  { key: 'final', label: 'المشاهد النهائية', icon: Film },
-  { key: 'assets', label: 'أصول الحلقة', icon: Folder },
-  { key: 'budget', label: 'الميزانية', icon: Wallet },
-]
+import { EpisodeDetailHeader } from '../features/episodes/components/EpisodeDetailHeader'
 
 export default function EpisodeDetail() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [active, setActive] = useState<TabKey>('overview')
-  const [episode, setEpisode] = useState<Episode | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (id) {
-      loadEpisode(id)
-    }
-  }, [id])
-
-  const loadEpisode = async (episodeId: string) => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await episodeOperations.getById(episodeId)
-      setEpisode(data)
-    } catch (err) {
-      console.error('Error loading episode:', err)
-      setError('فشل في تحميل بيانات الحلقة. يرجى المحاولة مرة أخرى.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const title = useMemo(() => {
-    if (episode) {
-      return episode.title
-    }
-    return `حلقة ${id}`
-  }, [episode, id])
+  const {
+    activeTab,
+    episode,
+    loading,
+    error,
+    statsData,
+    statsLoading,
+    title,
+    handleTabChange,
+    handleHome,
+    handleEpisodes,
+    handleRetry,
+  } = useEpisodeDetail()
 
   if (loading) {
     return (
@@ -94,8 +37,8 @@ export default function EpisodeDetail() {
         <div className="sticky top-0 z-50 bg-background border-b">
           <EpisodeDetailHeader
             title="جاري التحميل..."
-            onHome={() => navigate('/')}
-            onEpisodes={() => navigate('/episodes')}
+            onHome={handleHome}
+            onEpisodes={handleEpisodes}
           />
         </div>
         <main className="flex-1 flex items-center justify-center">
@@ -113,16 +56,16 @@ export default function EpisodeDetail() {
       <div className="min-h-screen bg-background">
         <EpisodeDetailHeader
           title="خطأ"
-          onHome={() => navigate('/')}
-          onEpisodes={() => navigate('/episodes')}
+          onHome={handleHome}
+          onEpisodes={handleEpisodes}
         />
         <main className="container py-8 space-y-6">
           <div className="text-center py-12">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="text-red-500 mb-4">{error || 'الحلقة غير موجودة'}</p>
             <div className="space-x-2">
-              <Button onClick={() => id && loadEpisode(id)}>إعادة المحاولة</Button>
-              <Button variant="outline" onClick={() => navigate('/episodes')}>
+              <Button onClick={handleRetry}>إعادة المحاولة</Button>
+              <Button variant="outline" onClick={handleEpisodes}>
                 العودة لقائمة الحلقات
               </Button>
             </div>
@@ -138,8 +81,8 @@ export default function EpisodeDetail() {
       <div className="sticky top-0 z-50 bg-background border-b">
         <EpisodeDetailHeader
           title={title}
-          onHome={() => navigate('/')}
-          onEpisodes={() => navigate('/episodes')}
+          onHome={handleHome}
+          onEpisodes={handleEpisodes}
         />
       </div>
 
@@ -150,26 +93,26 @@ export default function EpisodeDetail() {
           <aside className="w-[260px] shrink-0 sticky top-[80px] h-[calc(100vh-80px)] overflow-y-auto p-4">
             <EpisodeSidebar
               items={TABS}
-              active={active}
-              onChange={(k) => setActive(k)}
+              active={activeTab}
+              onChange={handleTabChange}
             />
           </aside>
 
           {/* Scrollable Content */}
           <main className="flex-1 p-6 overflow-y-auto">
             <section className="space-y-6 max-w-5xl">
-            {active === 'overview' && <OverviewSection episode={episode} />}
-            {active === 'script' && <TextTab />}
-            {active === 'audio' && <AudioTab />}
-            {active === 'storyboard' && <StoryboardTab />}
-            {active === 'draw' && <DrawingTab />}
-            {active === 'animation' && <AnimationTab />}
-            {active === 'edit' && <EditingTab />}
-            {(active === 'final' || active === 'assets' || active === 'budget') && (
+            {activeTab === 'overview' && <OverviewSection episode={episode} statsData={statsData} loading={statsLoading} />}
+            {activeTab === 'script' && <TextTab episodeId={episode.id} />}
+            {activeTab === 'audio' && <AudioTab episodeId={episode.id} />}
+            {activeTab === 'storyboard' && <StoryboardTab episodeId={episode.id} />}
+            {activeTab === 'draw' && <DrawingTab />}
+            {activeTab === 'animation' && <AnimationTab />}
+            {activeTab === 'edit' && <EditingTab />}
+            {(activeTab === 'final' || activeTab === 'assets' || activeTab === 'budget') && (
               <Card>
                 <CardHeader>
                   <CardTitle>
-                    {TABS.find((t) => t.key === active)?.label}
+                    {TABS.find((t) => t.key === activeTab)?.label}
                   </CardTitle>
                   <CardDescription>سيتم بناء هذه الواجهة لاحقًا بتفاصيل أعمق</CardDescription>
                 </CardHeader>
@@ -188,25 +131,22 @@ export default function EpisodeDetail() {
   )
 }
 
-function OverviewSection({ episode }: { episode: Episode }) {
-  const [statsData, setStatsData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+function OverviewSection({ 
+  episode, 
+  statsData, 
+  loading 
+}: { 
+  episode: Episode;
+  statsData: any;
+  loading: boolean;
+}) {
 
-  useEffect(() => {
-    loadEpisodeStats()
-  }, [episode.id])
-
-  const loadEpisodeStats = async () => {
-    try {
-      setLoading(true)
-      const stats = await statisticsOperations.getEpisodeStats(episode.id)
-      setStatsData(stats)
-    } catch (error) {
-      console.error('Error loading episode stats:', error)
-      setStatsData(null)
-    } finally {
-      setLoading(false)
-    }
+  if (loading) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   const formatTime = (seconds: number) => {

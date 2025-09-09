@@ -1,10 +1,10 @@
 import React from 'react';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
-import { Textarea } from '../../components/ui/textarea';
-import { TabHeader } from '../../components/TabHeader';
-import { useAudioTab } from '../../hooks/useAudioTab';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Badge } from '../../../components/ui/badge';
+import { Textarea } from '../../../components/ui/textarea';
+import { TabHeader } from '../../../components/TabHeader';
+import { useAudioTab } from '../hooks/useAudioTab'
 import {
   Upload, Mic, Save, Loader2, Waves, Play, Pause, Square, SkipBack, SkipForward,
   RotateCcw, Volume2, VolumeX, FileAudio, Clock, Settings, Trash2, Edit3,

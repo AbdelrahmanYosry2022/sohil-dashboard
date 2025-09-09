@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './com
 import { Link, useNavigate } from 'react-router-dom'
 import { Film } from 'lucide-react'
 import { useAuth } from './contexts/AuthContext'
-import LoginPage from './components/LoginPage'
+import LoginPage from './features/auth/components/LoginPage'
 import { EpisodeDetailHeader } from './components/EpisodeDetailHeader'
 
 function MainApp() {

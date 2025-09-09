@@ -1,7 +1,7 @@
 import React from 'react'
-import { Button } from '../../components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Textarea } from '../../components/ui/textarea'
+import { Button } from '../../../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Textarea } from '../../../components/ui/textarea'
 import {
   Save,
   Download,
@@ -26,7 +26,7 @@ import {
   Trash2,
   Loader2,
 } from 'lucide-react'
-import { useTextTab } from '../../hooks/useTextTab'
+import { useTextTab } from '../hooks/useTextTab'
 
 interface TextTabProps {
   episodeId: string;
