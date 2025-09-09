@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button'
 import { episodeOperations } from '../lib/supabase'
 import { Episode } from '../lib/types'
 import { Plus, Loader2 } from 'lucide-react'
-import { EpisodeDetailHeader } from '../components/EpisodeDetailHeader'
+import { EpisodeDetailHeader } from '../features/episodes/components/EpisodeDetailHeader'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Episodes() {

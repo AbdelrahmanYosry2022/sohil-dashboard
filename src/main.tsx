@@ -4,7 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import App from './App'
 import Episodes from './pages/Episodes'
 import EpisodeDetail from './pages/EpisodeDetail'
-import StoryboardFrameTab from './pages/tabs/StoryboardFrameTab'
+import StoryboardFrameTab from './features/storyboard/components/StoryboardFrameTab'
 
 import { storageOperations } from './lib/supabase'
 import './styles/globals.css'

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Film } from 'lucide-react'
 import { useAuth } from './contexts/AuthContext'
 import LoginPage from './features/auth/components/LoginPage'
-import { EpisodeDetailHeader } from './components/EpisodeDetailHeader'
+import { EpisodeDetailHeader } from './features/episodes/components/EpisodeDetailHeader'
 
 function MainApp() {
   const { user, loading, signOut } = useAuth()

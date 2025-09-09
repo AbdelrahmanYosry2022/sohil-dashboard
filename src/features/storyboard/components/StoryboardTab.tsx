@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import TabHeader from '../../../components/TabHeader'
 
-// Types are now imported from ../../types/storyboard
+// Types are imported from ../types
 
 interface StoryboardTabProps {
   episodeId: string;
