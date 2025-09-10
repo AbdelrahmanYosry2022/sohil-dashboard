@@ -25,7 +25,7 @@ import {
   Wallet,
   LayoutDashboard
 } from 'lucide-react'
-import { storageOperations, tabOperations } from '../../../lib/supabase'
+import { storyboardApi, storyboardStorage } from '../api'
 import { EpisodeDetailHeader } from '../../episodes/components/EpisodeDetailHeader'
 import { EpisodeSidebar } from '../../episodes/components/EpisodeSidebar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
@@ -151,7 +151,7 @@ export default function StoryboardFrameTab() {
       
       try {
         setLoading(true)
-        const savedFrames = await tabOperations.storyboard.loadFrames(episodeId)
+        const savedFrames = await storyboardApi.loadFrames(episodeId)
         if (savedFrames && savedFrames.length > 0) {
           const framesData = savedFrames as unknown as StoryboardFrame[]
           setFrames(framesData)
@@ -222,7 +222,7 @@ export default function StoryboardFrameTab() {
           setIsUploading(true)
           console.log('🔄 بدء رفع الصورة الجديدة...', formData.image.name)
           const fileName = `frame-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-          const uploadedUrl = await storageOperations.uploadStoryboardImage(episodeId, fileName, formData.image)
+          const uploadedUrl = await storyboardStorage.uploadStoryboardImage(episodeId, fileName, formData.image)
           
           if (uploadedUrl) {
             thumbnailUrl = uploadedUrl
@@ -259,7 +259,7 @@ export default function StoryboardFrameTab() {
       }
       
       // Persist changes to Supabase
-      await tabOperations.storyboard.saveFrames(episodeId, updatedFrames)
+      await storyboardApi.saveFrames(episodeId, updatedFrames)
       
       // Reset form image
       setFormData({ ...formData, image: null })

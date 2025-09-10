@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { User } from '@supabase/supabase-js'
-import { authOperations, supabase } from '../lib/supabase'
+import { authApi } from '../features/auth/api'
+import { supabase } from '../lib/supabase/client'
 
 interface AuthContextType {
   user: User | null
@@ -61,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = async (email: string, password: string) => {
     setLoading(true)
     try {
-      const result = await authOperations.signIn(email, password)
+      const result = await authApi.signIn(email, password)
       return result
     } finally {
       setLoading(false)
@@ -71,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signUp = async (email: string, password: string) => {
     setLoading(true)
     try {
-      const result = await authOperations.signUp(email, password)
+      const result = await authApi.signUp(email, password)
       return result
     } finally {
       setLoading(false)
@@ -81,7 +82,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = async () => {
     setLoading(true)
     try {
-      const result = await authOperations.signOut()
+      const result = await authApi.signOut()
       return result
     } finally {
       setLoading(false)

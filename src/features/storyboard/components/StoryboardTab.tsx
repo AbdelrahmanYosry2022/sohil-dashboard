@@ -6,7 +6,7 @@ import { Input } from '../../../components/ui/input'
 import { Textarea } from '../../../components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../../components/ui/dialog'
 import { UnifiedModal } from '../../../components/ui/unified-modal'
-import { storageOperations, tabOperations } from '../../../lib/supabase'
+import { storyboardApi, storyboardStorage } from '../api'
 import type { StoryboardFrame, Scene, Folder } from '../types'
 import {
   Plus,
@@ -78,14 +78,14 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
     const loadInitialData = async () => {
       if (!episodeId) return
       try {
-        const savedFolders = await tabOperations.storyboard.loadFolders(episodeId)
+        const savedFolders = await storyboardApi.loadFolders(episodeId)
         
         // Always load saved folders, even if empty (this preserves deletions)
         const mapped = (savedFolders || []).map((f: any) => ({
-          id: f.folderId || f.id,
+          id: String(f.folderId || f.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))),
           name: f.name || '',
           scenes: (f.scenes || []).map((s: any) => ({
-            id: s.sceneId || s.id,
+            id: String(s.sceneId || s.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))),
             title: s.title || '',
             thumbnail: s.thumbnail || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPtmF2LTZh9ivPC90ZXh0Pjwvc3ZnPg==',
             description: s.description || ''
@@ -95,7 +95,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
         // Always use saved data, even if empty (no demo data)
         setFolders(mapped)
 
-        const savedFrames = await tabOperations.storyboard.loadFrames(episodeId)
+        const savedFrames = await storyboardApi.loadFrames(episodeId)
         if (savedFrames && savedFrames.length > 0) {
           setFrames(savedFrames as unknown as StoryboardFrame[])
         }
@@ -187,7 +187,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
           !frameToDelete.thumbnail.startsWith('data:image/svg+xml')) {
         const fileName = frameToDelete.thumbnail.split('/').pop()
         if (fileName) {
-          await storageOperations.deleteStoryboardImage(episodeId, fileName)
+          await storyboardStorage.deleteStoryboardImage(episodeId, fileName)
         }
       }
       
@@ -212,7 +212,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
       // Persist changes
       try {
         if (episodeId) {
-          await tabOperations.storyboard.saveFrames(episodeId, updated)
+          await storyboardApi.saveFrames(episodeId, updated)
         }
       } catch (e) {
         console.error('فشل حفظ الإطارات بعد الحذف:', e)
@@ -231,7 +231,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
         setIsUploading(true)
         console.log('🔄 بدء رفع الصورة...', formData.image.name)
         const fileName = `frame-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-        const uploadedUrl = await storageOperations.uploadStoryboardImage(episodeId, fileName, formData.image)
+        const uploadedUrl = await storyboardStorage.uploadStoryboardImage(episodeId, fileName, formData.image)
         
         if (uploadedUrl) {
           thumbnailUrl = uploadedUrl
@@ -253,10 +253,10 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
     }
 
     // Create new frame with proper frameId and duration type
-    const frameId = `sb-f-${Date.now()}`
+  const frameId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
     const newFrame: StoryboardFrame = {
-      id: frameId,
-      frameId: frameId,
+  id: frameId,
+  frameId: frameId,
       title: formData.title.trim() || `إطار جديد ${frames.length + 1}`,
       description: formData.description.trim(),
       thumbnail: thumbnailUrl,
@@ -286,7 +286,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
     setFrames(newFrames)
     // Persist new frames to Supabase
     try {
-      await tabOperations.storyboard.saveFrames(episodeId, newFrames)
+      await storyboardApi.saveFrames(episodeId, newFrames)
     } catch (e) {
       console.error('فشل حفظ الإطارات بعد الإضافة:', e)
     }
@@ -306,7 +306,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
         setIsUploading(true)
         console.log('🔄 بدء رفع الصورة الجديدة...', formData.image.name)
         const fileName = `frame-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-        const uploadedUrl = await storageOperations.uploadStoryboardImage(episodeId, fileName, formData.image)
+        const uploadedUrl = await storyboardStorage.uploadStoryboardImage(episodeId, fileName, formData.image)
         
         if (uploadedUrl) {
           thumbnailUrl = uploadedUrl
@@ -342,7 +342,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
     setFrames(updated)
     // Persist changes
     try {
-      await tabOperations.storyboard.saveFrames(episodeId, updated)
+      await storyboardApi.saveFrames(episodeId, updated)
     } catch (e) {
       console.error('فشل حفظ الإطارات بعد التعديل:', e)
     }
@@ -389,7 +389,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
       return updated
     })
     try {
-      if (episodeId) await tabOperations.storyboard.saveFolders(episodeId, updated)
+      if (episodeId) await storyboardApi.saveFolders(episodeId, updated)
     } catch (e) { console.error('فشل حفظ المشاهد:', e) }
   }
 
@@ -413,7 +413,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
       )
       return updated
     })
-    try { if (episodeId) await tabOperations.storyboard.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ تعديل المشهد:', e) }
+    try { if (episodeId) await storyboardApi.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ تعديل المشهد:', e) }
     setIsSceneEditOpen(false)
     setEditingScene(null)
   }
@@ -430,7 +430,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
         if (f.thumbnail && !f.thumbnail.startsWith('data:image/svg+xml')) {
           const fileName = f.thumbnail.split('/').pop()
           if (fileName) {
-            try { await storageOperations.deleteStoryboardImage(episodeId, fileName) } catch {}
+            try { await storyboardStorage.deleteStoryboardImage(episodeId, fileName) } catch {}
           }
         }
       }
@@ -440,7 +440,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
     const remainingFrames = frames.filter(f => f.sceneId !== sceneId)
     setFrames(remainingFrames)
     // Persist frames update
-    try { if (episodeId) await tabOperations.storyboard.saveFrames(episodeId, remainingFrames) } catch (e) { console.error(e) }
+    try { if (episodeId) await storyboardApi.saveFrames(episodeId, remainingFrames) } catch (e) { console.error(e) }
 
     // Remove the scene from folder
     let updated: Folder[] = []
@@ -452,7 +452,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
       )
       return updated
     })
-    try { if (episodeId) await tabOperations.storyboard.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ حذف المشهد:', e) }
+    try { if (episodeId) await storyboardApi.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ حذف المشهد:', e) }
 
     // Reset active scene if needed
     if (activeSceneId === sceneId) {
@@ -525,27 +525,27 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
     if (!folder) return null
     return (
       <div className="p-6">
-        <TabHeader
-          title={folder.name}
-          description={`(${folder.scenes.length} مشهد)`}
-          actions={(
-            <>
-              <div className="flex items-center bg-muted rounded-lg p-1">
-                <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0"><Grid size={16} /></Button>
-                <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0"><List size={16} /></Button>
-              </div>
-              <Button onClick={() => setIsSceneModalOpen(true)} className="flex items-center gap-2">
-                <Plus size={16} />
-                مشهد جديد
-              </Button>
-            </>
-          )}
-        />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => { setPage('library'); setActiveFolderId(null); }} className="p-2"><ChevronLeft size={18} /></Button>
+            <h2 className="text-xl font-semibold">{folder.name} <span className="text-sm text-muted-foreground">({folder.scenes.length} مشهد)</span></h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-muted rounded-lg p-1">
+              <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('grid')} className="h-8 w-8 p-0"><Grid size={16} /></Button>
+              <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('list')} className="h-8 w-8 p-0"><List size={16} /></Button>
+            </div>
+            <Button onClick={() => setIsSceneModalOpen(true)} className="flex items-center gap-2">
+              <Plus size={16} />
+              مشهد جديد
+            </Button>
+          </div>
+        </div>
 
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {folder.scenes.map((scene) => (
-              <Card key={scene.id} className="cursor-pointer hover:shadow-lg transition-all group overflow-hidden relative" onClick={() => openScene(scene.id)}>
+            {folder.scenes.map((scene, idx) => (
+              <Card key={`scene-grid-${scene.id}-${idx}`} className="cursor-pointer hover:shadow-lg transition-all group overflow-hidden relative" onClick={() => openScene(scene.id)}>
                 <div className="aspect-video bg-muted relative">
                   <img src={scene.thumbnail} alt={scene.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
@@ -561,8 +561,8 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            {folder.scenes.map((scene) => (
-              <Card key={scene.id} className="cursor-pointer hover:shadow-md transition-all group" onClick={() => openScene(scene.id)}>
+            {folder.scenes.map((scene, idx) => (
+              <Card key={`scene-list-${scene.id}-${idx}`} className="cursor-pointer hover:shadow-md transition-all group" onClick={() => openScene(scene.id)}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-4">
                     <div className="w-16 h-16 bg-muted rounded-lg overflow-hidden relative">
@@ -589,105 +589,125 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
 
   // Storyboard (Timeline) - reuse existing UI and improve
   const StoryboardPage = () => {
-    const sceneFrames = frames.filter(f => f.sceneId === activeSceneId)
+  const sceneFrames = frames.filter(f => f.sceneId === activeSceneId)
+  const unassignedFrames = frames.filter(f => !f.sceneId)
     return (
       <div className="p-6">
-        <TabHeader
-          title="لوحة الستوري بورد"
-          actions={(
-            <Button onClick={() => handleCreateFrame()} className="flex items-center gap-2"><Plus size={16} />إطار جديد</Button>
-          )}
-        />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => { setPage('folder'); setActiveFrameId(null); }} className="p-2"><ChevronLeft size={18} /></Button>
+            <h2 className="text-xl font-semibold">لوحة الستوري بورد</h2>
+          </div>
+          <Button onClick={() => handleCreateFrame()} className="flex items-center gap-2"><Plus size={16} />إطار جديد</Button>
+        </div>
+
+        {/* Tabs for assigned/unassigned frames */}
+        <div className="mb-6 flex gap-2">
+          <Button
+            variant={activeSceneId ? 'default' : 'secondary'}
+            size="sm"
+            onClick={() => setActiveSceneId(null)}
+          >
+            غير مُسندة
+          </Button>
+          {folders.flatMap(folder => folder.scenes).map(scene => (
+            <Button
+              key={scene.id}
+              variant={activeSceneId === scene.id ? 'default' : 'secondary'}
+              size="sm"
+              onClick={() => setActiveSceneId(scene.id)}
+            >
+              {scene.title}
+            </Button>
+          ))}
+        </div>
 
         <Card>
           <CardContent className="p-6">
             <div className="relative max-w-full">
               <div className="space-y-8">
-                {Array.from({ length: Math.ceil((sceneFrames.length + 1) / 3) }, (_, rowIndex) => {
-                  const startIndex = rowIndex * 3;
-                  const rowFrames = sceneFrames.slice(startIndex, startIndex + 3);
-                  
-                  return (
-                    <div key={rowIndex} className="flex items-center gap-4">
-                      {/* خط قبل الكارد الأول في كل صف */}
-                      <div className="relative group/separator flex items-center justify-center" style={{ width: '32px', height: '256px' }}>
-                        {/* الخط الفاصل */}
-                        <div className="absolute top-1/2 left-1/2 w-8 h-0.5 bg-border -translate-x-1/2 -translate-y-1/2 z-5" />
-                        
-                        {/* علامة الزائد أعلى الخط */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/separator:opacity-100 transition-all duration-200 z-30">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-lg"
-                            onClick={() => handleCreateFrame(startIndex - 1)}
-                          >
-                            <Plus size={14} />
-                          </Button>
+                {(activeSceneId ? sceneFrames : unassignedFrames).length === 0 ? (
+                  <div className="text-center text-muted-foreground">لا توجد إطارات</div>
+                ) : (
+                  Array.from({ length: Math.ceil(((activeSceneId ? sceneFrames : unassignedFrames).length + 1) / 3) }, (_, rowIndex) => {
+                    const startIndex = rowIndex * 3;
+                    const rowFrames = (activeSceneId ? sceneFrames : unassignedFrames).slice(startIndex, startIndex + 3);
+                    return (
+                      <div key={rowIndex} className="flex items-center gap-4">
+                        {/* خط قبل الكارد الأول في كل صف */}
+                        <div className="relative group/separator flex items-center justify-center" style={{ width: '32px', height: '256px' }}>
+                          {/* الخط الفاصل */}
+                          <div className="absolute top-1/2 left-1/2 w-8 h-0.5 bg-border -translate-x-1/2 -translate-y-1/2 z-5" />
+                          {/* علامة الزائد أعلى الخط */}
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/separator:opacity-100 transition-all duration-200 z-30">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-lg"
+                              onClick={() => handleCreateFrame(startIndex - 1)}
+                            >
+                              <Plus size={14} />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                      
-                      {/* الكاردات في الصف */}
-                      {rowFrames.map((frame, cardIndex) => {
-                        const globalIndex = startIndex + cardIndex;
-                        return (
-                          <React.Fragment key={frame.id}>
-                            {/* الكارد */}
-                            <div key={`frame-${frame.id}`} className="relative group">
-                              <Card className="w-64 hover:shadow-lg transition-all bg-background relative z-10">
-                                <div className="relative">
-                                  <div className="aspect-video bg-muted rounded-t-lg overflow-hidden cursor-pointer" onClick={() => openFrame(frame.id)}>
-                                    <img src={frame.thumbnail} alt={frame.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                  </div>
-                                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-background/80 hover:bg-background" onClick={() => handleEditFrame(frame)}><Edit size={12} /></Button>
-                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-background/80 hover:bg-destructive hover:text-destructive-foreground" onClick={async () => await handleDeleteFrame(frame.id)}><Trash2 size={12} /></Button>
-                                  </div>
-                                </div>
-                                <CardContent className="p-4">
-                                  <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                      <h3 className="font-semibold text-sm">{frame.title}</h3>
-                                      <span className="text-xs text-muted-foreground">#{frame.order}</span>
+                        {/* الكاردات في الصف */}
+                        {rowFrames.map((frame, cardIndex) => {
+                          const globalIndex = startIndex + cardIndex;
+                          return (
+                            <React.Fragment key={frame.id}>
+                              {/* الكارد */}
+                              <div key={`frame-${frame.id}`} className="relative group">
+                                <Card className="w-64 hover:shadow-lg transition-all bg-background relative z-10">
+                                  <div className="relative">
+                                    <div className="aspect-video bg-muted rounded-t-lg overflow-hidden cursor-pointer" onClick={() => openFrame(frame.id)}>
+                                      <img src={frame.thumbnail} alt={frame.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                     </div>
-                                    <p className="text-xs text-muted-foreground line-clamp-2">{frame.description}</p>
-                                    <div className="flex items-center justify_between text-xs text-muted-foreground">
-                                      <div className="flex items-center gap-1"><Clock size={12} /><span>{frame.duration}</span></div>
-                                      {frame.notes && (<div className="flex items-center gap-1"><MessageCircle size={12} /><span>ملاحظات</span></div>)}
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-background/80 hover:bg-background" onClick={() => handleEditFrame(frame)}><Edit size={12} /></Button>
+                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-background/80 hover:bg-destructive hover:text-destructive-foreground" onClick={async () => await handleDeleteFrame(frame.id)}><Trash2 size={12} /></Button>
                                     </div>
                                   </div>
-                                </CardContent>
-                              </Card>
-                            </div>
-                            
-                            {/* خط قبل الكارد التالي في نفس الصف */}
-                            {cardIndex < rowFrames.length - 1 && (
-                              <div key={`separator-${globalIndex}`} className="relative group/separator flex items-center justify-center" style={{ width: '32px', height: '256px' }}>
-                                {/* الخط الفاصل */}
-                                <div className="absolute top-1/2 left-1/2 w-8 h-0.5 bg-border -translate-x-1/2 -translate-y-1/2 z-5" />
-                                
-                                {/* علامة الزائد أعلى الخط */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/separator:opacity-100 transition-all duration-200 z-30">
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-lg"
-                                    onClick={() => handleCreateFrame(globalIndex)}
-                                  >
-                                    <Plus size={14} />
-                                  </Button>
-                                </div>
+                                  <CardContent className="p-4">
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <h3 className="font-semibold text-sm">{frame.title}</h3>
+                                        <span className="text-xs text-muted-foreground">#{frame.order}</span>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground line-clamp-2">{frame.description}</p>
+                                      <div className="flex items-center justify_between text-xs text-muted-foreground">
+                                        <div className="flex items-center gap-1"><Clock size={12} /><span>{frame.duration}</span></div>
+                                        {frame.notes && (<div className="flex items-center gap-1"><MessageCircle size={12} /><span>ملاحظات</span></div>)}
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
                               </div>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                      
-                      {/* أزلنا الخط بعد آخر كارد حسب الطلب */}
-
-                    </div>
-                  );
-                })}
+                              {/* خط قبل الكارد التالي في نفس الصف */}
+                              {cardIndex < rowFrames.length - 1 && (
+                                <div key={`separator-${globalIndex}`} className="relative group/separator flex items-center justify-center" style={{ width: '32px', height: '256px' }}>
+                                  {/* الخط الفاصل */}
+                                  <div className="absolute top-1/2 left-1/2 w-8 h-0.5 bg-border -translate-x-1/2 -translate-y-1/2 z-5" />
+                                  {/* علامة الزائد أعلى الخط */}
+                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/separator:opacity-100 transition-all duration-200 z-30">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-lg"
+                                      onClick={() => handleCreateFrame(globalIndex)}
+                                    >
+                                      <Plus size={14} />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                        {/* أزلنا الخط بعد آخر كارد حسب الطلب */}
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </CardContent>
@@ -706,7 +726,7 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="sm" onClick={() => setPage('storyboard')} className="p-2"><ChevronLeft size={20} /></Button>
+                <Button variant="ghost" size="sm" onClick={() => { setPage('storyboard'); setActiveFrameId(null); }} className="p-2"><ChevronLeft size={20} /></Button>
                 <h1 className="text-lg font-semibold">{frame.title}</h1>
               </div>
             </div>

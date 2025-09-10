@@ -1,28 +1,31 @@
-import React, { useState } from 'react'
-import { authOperations } from '../../../lib/supabase'
+
+import { useState } from 'react'
+import { authApi } from '../api'
 import { User } from '@supabase/supabase-js'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface LoginPageProps {
   onLoginSuccess: (user: User) => void
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isSignUp, setIsSignUp] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
-
     try {
-      const result = isSignUp 
-        ? await authOperations.signUp(email, password)
-        : await authOperations.signIn(email, password)
-
+      const result = isSignUp
+        ? await authApi.signUp(email, password)
+        : await authApi.signIn(email, password)
       if (result.error) {
         setError(result.error)
       } else if (result.user) {
@@ -36,100 +39,102 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          {isSignUp ? 'إنشاء حساب جديد' : 'تسجيل الدخول'}
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          مرحباً بك في تطبيق الستوري بورد
-        </p>
-      </div>
+    <div className="min-h-screen bg-white flex gap-8 p-8 py-3 px-3" dir="rtl">
+      {/* Left Side - Login Form */}
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="flex-1 p-12 flex flex-col justify-center items-center">
+        {/* Logo */}
+        <div className="w-full max-w-sm">
+          <div className="flex justify-center mb-8 w-full">
+          <img 
+            src="/assets/logo-dark.png" 
+            alt="Sohil Animation Logo" 
+            className="h-12 w-auto"
+          />
+        </div>
+
+        {/* Form Content */}
+          <div className="text-center mb-8"> 
+            <h2 className="text-4xl font-bold text-black mb-2">{isSignUp ? 'إنشاء حساب جديد' : 'مرحباً بعودتك'}</h2>
+            <p className="text-gray-600">أدخل بريدك الإلكتروني وكلمة المرور للدخول إلى حسابك</p>
+          </div>
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                البريد الإلكتروني
-              </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="أدخل بريدك الإلكتروني"
-                  dir="ltr"
-                />
-              </div>
+            {/* Email Field */}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium text-black">البريد الإلكتروني</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="أدخل بريدك الإلكتروني"
+                className="h-12 border-gray-200 focus:border-black focus:ring-black"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                كلمة المرور
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  placeholder="أدخل كلمة المرور"
-                  dir="ltr"
-                />
-              </div>
+            {/* Password Field */}
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-black">كلمة المرور</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="أدخل كلمة المرور"
+                className="h-12 border-gray-200 focus:border-black focus:ring-black"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+              />
             </div>
-
+            {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl relative">
                 <span className="block sm:inline">{error}</span>
               </div>
             )}
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    جاري المعالجة...
-                  </div>
-                ) : (
-                  isSignUp ? 'إنشاء الحساب' : 'تسجيل الدخول'
-                )}
-              </button>
+            {/* Remember Me & Forgot Password */}
+            <div className="flex items-center justify-between mt-2 mb-6">
+              <div className="flex items-center space-x-3 pr-2">
+                <Checkbox id="remember" label="تذكرني" className="ml-2" />
+              </div>
+              <button type="button" className="text-sm text-gray-600 hover:text-black hover:underline">نسيت كلمة المرور؟</button>
             </div>
-
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(!isSignUp)
-                  setError(null)
-                }}
-                className="text-indigo-600 hover:text-indigo-500 text-sm font-medium"
-              >
-                {isSignUp 
-                  ? 'لديك حساب بالفعل؟ سجل الدخول' 
-                  : 'ليس لديك حساب؟ أنشئ حساباً جديداً'
-                }
-              </button>
-            </div>
+            {/* Sign In/Up Button */}
+            <Button className="w-full h-12 bg-black hover:bg-gray-800 text-white font-medium" type="submit" disabled={loading}>
+              {loading ? (isSignUp ? 'جاري إنشاء الحساب...' : 'جاري تسجيل الدخول...') : (isSignUp ? 'إنشاء حساب' : 'تسجيل الدخول')}
+            </Button>
+            {/* Removed Google Sign In and Sign Up Link sections */}
           </form>
         </div>
       </div>
+      
+
+      {/* Right Side - Gradient Background with rounded corners */}
+
+      <div 
+        className="flex-1 relative p-12 flex flex-col justify-between text-white rounded-3xl shadow-2xl overflow-hidden"
+        style={{
+          backgroundImage: 'url(/assets/c1616ed4-a298-4856-8706-bc7642fadd6b.jfif)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="absolute inset-0 bg-black/50 rounded-3xl"></div>
+        {/* Top Quote */}
+        <div className="relative z-10">
+          <p className="text-sm font-medium tracking-wider text-white/90">شركة ملهمون الابداعية</p>
+        </div>
+        {/* Main Content */}
+        <div className="relative z-10">
+          <h1 className="text-6xl font-bold leading-tight mb-6 text-white">
+            منصة انتاج برنامج<br />سهيل أنيميشن
+          </h1>
+          <p className="text-lg text-white/95 leading-relaxed">
+            منصة متكاملة لإنشاء وتصميم الرسوم المتحركة باحترافية وسهولة، توفر لك الأدوات اللازمة لتحويل أفكارك إلى واقع مبدع
+          </p>
+        </div>
+      </div>
+
     </div>
   )
 }
