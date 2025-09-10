@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { episodeOperations, statisticsOperations } from '../../../lib/supabase';
+import { episodesApi, statisticsApi } from '../api';
 import { Episode } from '../../../lib/types';
 
 type TabKey =
@@ -49,7 +49,7 @@ export const useEpisodeDetail = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await episodeOperations.getById(episodeId);
+      const data = await episodesApi.getById(episodeId);
       // Ensure status is one of the allowed values
       const episodeWithValidStatus = {
         ...data,
@@ -70,7 +70,7 @@ export const useEpisodeDetail = () => {
     try {
       setStatsLoading(true);
       setStatsError(null);
-      const stats = await statisticsOperations.getEpisodeStats(episodeId);
+      const stats = await statisticsApi.getEpisodeStats(episodeId);
       setStatsData(stats);
     } catch (err) {
       console.error('Error loading episode stats:', err);

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
 import { Button } from '../components/ui/button'
-import { episodeOperations } from '../lib/supabase'
+import { episodesApi } from '../features/episodes/api'
 import { Episode } from '../lib/types'
 import { Plus, Loader2 } from 'lucide-react'
 import { EpisodeDetailHeader } from '../features/episodes/components/EpisodeDetailHeader'
@@ -24,7 +24,7 @@ export default function Episodes() {
     try {
       setLoading(true)
       setError(null)
-      const data = await episodeOperations.getAll()
+      const data = await episodesApi.getAll()
       const normalized = (data || []).map((e: any) => ({
         ...e,
         status: e?.status === 'draft' || e?.status === 'in_progress' || e?.status === 'completed' ? e.status : 'draft',

@@ -1,16 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { tabOperations } from '../../../lib/supabase';
+import { audioApi } from '../api';
+import type { AudioContent } from '../api';
 
-export interface AudioFile {
-  id: string;
-  name: string;
-  url: string;
-  duration: number;
-  size: number; // in MB
-  type: string;
-  notes?: string;
-  sceneId?: string;
-  createdAt: Date;
+// Use the AudioContent type from the API layer
+export type AudioFile = Omit<AudioContent, 'createdAt'> & {
+  id: string; // Use id instead of fileId for compatibility
+  createdAt: Date; // Override to use Date instead of string
 }
 
 export interface Scene {
@@ -105,9 +100,22 @@ export const useAudioTab = (episodeId: string | null) => {
   const loadAudioFiles = async () => {
     try {
       setIsLoading(true);
-      const loadedFiles = await tabOperations.audio.loadAudioFiles(episodeId!);
+      const loadedFiles = await audioApi.loadAudioFiles(episodeId!);
       if (loadedFiles.length > 0) {
-        setAudioFiles(loadedFiles);
+        // Convert AudioContent[] to AudioFile[]
+        const convertedFiles: AudioFile[] = loadedFiles.map(file => ({
+          id: file.id,
+          fileId: file.id, // Map id to fileId for API compatibility
+          name: file.name,
+          url: file.url,
+          duration: file.duration,
+          size: file.size,
+          type: file.type,
+          sceneId: file.sceneId,
+          notes: file.notes,
+          createdAt: file.createdAt // This is already Date from the API
+        }));
+        setAudioFiles(convertedFiles);
       } else {
         setAudioFiles([]);
       }
@@ -124,7 +132,19 @@ export const useAudioTab = (episodeId: string | null) => {
 
     try {
       setIsSaving(true);
-      await tabOperations.audio.saveAudioFiles(episodeId, audioFiles);
+      // Convert AudioFile[] to AudioContent[] for the API
+      const apiFiles: AudioContent[] = audioFiles.map(file => ({
+        fileId: file.fileId,
+        name: file.name,
+        url: file.url,
+        duration: file.duration,
+        size: file.size,
+        type: file.type,
+        sceneId: file.sceneId,
+        notes: file.notes,
+        createdAt: file.createdAt.toISOString() // Convert Date to string for API
+      }));
+      await audioApi.saveAudioFiles(episodeId, apiFiles);
       console.log('تم حفظ جميع ملفات الصوت بنجاح');
     } catch (error) {
       console.error('Error saving audio files:', error);
@@ -210,6 +230,7 @@ export const useAudioTab = (episodeId: string | null) => {
         if (file.type.startsWith('audio/')) {
           const newAudioFile: AudioFile = {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            fileId: Date.now().toString() + Math.random().toString(36).substr(2, 9),
             name: file.name,
             url: URL.createObjectURL(file),
             duration: 0,
@@ -227,7 +248,19 @@ export const useAudioTab = (episodeId: string | null) => {
         
         try {
           const allFiles = [...audioFiles, ...newFiles];
-          await tabOperations.audio.saveAudioFiles(episodeId, allFiles);
+          // Convert to AudioContent[] for API
+          const apiFiles: AudioContent[] = allFiles.map(file => ({
+            fileId: file.fileId,
+            name: file.name,
+            url: file.url,
+            duration: file.duration,
+            size: file.size,
+            type: file.type,
+            sceneId: file.sceneId,
+            notes: file.notes,
+            createdAt: file.createdAt.toISOString()
+          }));
+          await audioApi.saveAudioFiles(episodeId, apiFiles);
         } catch (error) {
           console.error('Error saving uploaded files:', error);
         }
@@ -252,6 +285,7 @@ export const useAudioTab = (episodeId: string | null) => {
         const url = URL.createObjectURL(blob);
         const newRecording: AudioFile = {
           id: Date.now().toString(),
+          fileId: Date.now().toString(),
           name: `تسجيل_${new Date().toLocaleDateString('ar')}.wav`,
           url,
           duration: recordingTime,
@@ -260,15 +294,27 @@ export const useAudioTab = (episodeId: string | null) => {
           notes: 'تسجيل جديد',
           createdAt: new Date()
         };
-        
+
         setAudioFiles(prev => {
           const updatedFiles = [...prev, newRecording];
-          
+
           if (episodeId) {
-            tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+            // Convert to AudioContent[] for API
+            const apiFiles: AudioContent[] = updatedFiles.map(file => ({
+              fileId: file.fileId,
+              name: file.name,
+              url: file.url,
+              duration: file.duration,
+              size: file.size,
+              type: file.type,
+              sceneId: file.sceneId,
+              notes: file.notes,
+              createdAt: file.createdAt.toISOString()
+            }));
+            audioApi.saveAudioFiles(episodeId, apiFiles)
               .catch(error => console.error('Error saving recording:', error));
           }
-          
+
           return updatedFiles;
         });
         
@@ -304,7 +350,19 @@ export const useAudioTab = (episodeId: string | null) => {
       );
       
       if (episodeId) {
-        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+        // Convert to AudioContent[] for API
+        const apiFiles: AudioContent[] = updatedFiles.map(file => ({
+          fileId: file.fileId,
+          name: file.name,
+          url: file.url,
+          duration: file.duration,
+          size: file.size,
+          type: file.type,
+          sceneId: file.sceneId,
+          notes: file.notes,
+          createdAt: file.createdAt.toISOString()
+        }));
+        audioApi.saveAudioFiles(episodeId, apiFiles)
           .catch(error => console.error('Error saving scene link:', error));
       }
       
@@ -319,7 +377,19 @@ export const useAudioTab = (episodeId: string | null) => {
       );
       
       if (episodeId) {
-        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+        // Convert to AudioContent[] for API
+        const apiFiles: AudioContent[] = updatedFiles.map(file => ({
+          fileId: file.fileId,
+          name: file.name,
+          url: file.url,
+          duration: file.duration,
+          size: file.size,
+          type: file.type,
+          sceneId: file.sceneId,
+          notes: file.notes,
+          createdAt: file.createdAt.toISOString()
+        }));
+        audioApi.saveAudioFiles(episodeId, apiFiles)
           .catch(error => console.error('Error saving scene unlink:', error));
       }
       
@@ -340,7 +410,19 @@ export const useAudioTab = (episodeId: string | null) => {
       );
       
       if (episodeId) {
-        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+        // Convert to AudioContent[] for API
+        const apiFiles: AudioContent[] = updatedFiles.map(file => ({
+          fileId: file.fileId,
+          name: file.name,
+          url: file.url,
+          duration: file.duration,
+          size: file.size,
+          type: file.type,
+          sceneId: file.sceneId,
+          notes: file.notes,
+          createdAt: file.createdAt.toISOString()
+        }));
+        audioApi.saveAudioFiles(episodeId, apiFiles)
           .catch(error => console.error('Error saving notes:', error));
       }
       
@@ -361,7 +443,19 @@ export const useAudioTab = (episodeId: string | null) => {
       const updatedFiles = prev.filter(file => file.id !== fileId);
       
       if (episodeId) {
-        tabOperations.audio.saveAudioFiles(episodeId, updatedFiles)
+        // Convert to AudioContent[] for API
+        const apiFiles: AudioContent[] = updatedFiles.map(file => ({
+          fileId: file.fileId,
+          name: file.name,
+          url: file.url,
+          duration: file.duration,
+          size: file.size,
+          type: file.type,
+          sceneId: file.sceneId,
+          notes: file.notes,
+          createdAt: file.createdAt.toISOString()
+        }));
+        audioApi.saveAudioFiles(episodeId, apiFiles)
           .catch(error => console.error('Error deleting file:', error));
       }
       

@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { storageOperations, tabOperations } from '../../../lib/supabase'
+import { storyboardApi, storyboardStorage } from '../api'
 import type { StoryboardFrame, Scene, Folder } from '../types'
 
 export const useStoryboardTab = () => {
@@ -52,7 +52,7 @@ export const useStoryboardTab = () => {
     const loadInitialData = async () => {
       if (!episodeId) return
       try {
-        const savedFolders = await tabOperations.storyboard.loadFolders(episodeId)
+        const savedFolders = await storyboardApi.loadFolders(episodeId)
         
         const mapped = (savedFolders || []).map((f: any) => ({
           id: f.folderId || f.id,
@@ -67,7 +67,7 @@ export const useStoryboardTab = () => {
         
         setFolders(mapped)
 
-        const savedFrames = await tabOperations.storyboard.loadFrames(episodeId)
+        const savedFrames = await storyboardApi.loadFrames(episodeId)
         if (savedFrames && savedFrames.length > 0) {
           setFrames(savedFrames as unknown as StoryboardFrame[])
         }
@@ -160,7 +160,7 @@ export const useStoryboardTab = () => {
           !frameToDelete.thumbnail.startsWith('data:image/svg+xml')) {
         const fileName = frameToDelete.thumbnail.split('/').pop()
         if (fileName) {
-          await storageOperations.deleteStoryboardImage(episodeId, fileName)
+          await storyboardStorage.deleteStoryboardImage(episodeId, fileName)
         }
       }
       
@@ -185,7 +185,7 @@ export const useStoryboardTab = () => {
       // Persist changes
       try {
         if (episodeId) {
-          await tabOperations.storyboard.saveFrames(episodeId, updated)
+          await storyboardApi.saveFrames(episodeId, updated)
         }
       } catch (e) {
         console.error('فشل حفظ الإطارات بعد الحذف:', e)
@@ -204,7 +204,7 @@ export const useStoryboardTab = () => {
         setIsUploading(true)
         console.log('🔄 بدء رفع الصورة...', formData.image.name)
         const fileName = `frame-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-        const uploadedUrl = await storageOperations.uploadStoryboardImage(episodeId, fileName, formData.image)
+        const uploadedUrl = await storyboardStorage.uploadStoryboardImage(episodeId, fileName, formData.image)
         
         if (uploadedUrl) {
           thumbnailUrl = uploadedUrl
@@ -257,7 +257,7 @@ export const useStoryboardTab = () => {
     setFrames(newFrames)
     // Persist new frames to Supabase
     try {
-      await tabOperations.storyboard.saveFrames(episodeId, newFrames)
+      await storyboardApi.saveFrames(episodeId, newFrames)
     } catch (e) {
       console.error('فشل حفظ الإطارات بعد الإضافة:', e)
     }
@@ -277,7 +277,7 @@ export const useStoryboardTab = () => {
         setIsUploading(true)
         console.log('🔄 بدء رفع الصورة الجديدة...', formData.image.name)
         const fileName = `frame-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-        const uploadedUrl = await storageOperations.uploadStoryboardImage(episodeId, fileName, formData.image)
+        const uploadedUrl = await storyboardStorage.uploadStoryboardImage(episodeId, fileName, formData.image)
         
         if (uploadedUrl) {
           thumbnailUrl = uploadedUrl
@@ -313,7 +313,7 @@ export const useStoryboardTab = () => {
     setFrames(updated)
     // Persist changes
     try {
-      await tabOperations.storyboard.saveFrames(episodeId, updated)
+      await storyboardApi.saveFrames(episodeId, updated)
     } catch (e) {
       console.error('فشل حفظ الإطارات بعد التعديل:', e)
     }
@@ -366,7 +366,7 @@ export const useStoryboardTab = () => {
     setPage('storyboard')
     
     try {
-      if (episodeId) await tabOperations.storyboard.saveFolders(episodeId, updated)
+      if (episodeId) await storyboardApi.saveFolders(episodeId, updated)
     } catch (e) { console.error('فشل حفظ المشاهد:', e) }
   }
 
@@ -390,7 +390,7 @@ export const useStoryboardTab = () => {
       )
       return updated
     })
-    try { if (episodeId) await tabOperations.storyboard.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ تعديل المشهد:', e) }
+    try { if (episodeId) await storyboardApi.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ تعديل المشهد:', e) }
     setIsSceneEditOpen(false)
     setEditingScene(null)
   }
@@ -407,7 +407,7 @@ export const useStoryboardTab = () => {
         if (f.thumbnail && !f.thumbnail.startsWith('data:image/svg+xml')) {
           const fileName = f.thumbnail.split('/').pop()
           if (fileName) {
-            try { await storageOperations.deleteStoryboardImage(episodeId, fileName) } catch {}
+            try { await storyboardStorage.deleteStoryboardImage(episodeId, fileName) } catch {}
           }
         }
       }
@@ -417,7 +417,7 @@ export const useStoryboardTab = () => {
     const remainingFrames = frames.filter(f => f.sceneId !== sceneId)
     setFrames(remainingFrames)
     // Persist frames update
-    try { if (episodeId) await tabOperations.storyboard.saveFrames(episodeId, remainingFrames) } catch (e) { console.error(e) }
+    try { if (episodeId) await storyboardApi.saveFrames(episodeId, remainingFrames) } catch (e) { console.error(e) }
 
     // Remove the scene from folder
     let updated: Folder[] = []
@@ -429,7 +429,7 @@ export const useStoryboardTab = () => {
       )
       return updated
     })
-    try { if (episodeId) await tabOperations.storyboard.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ حذف المشهد:', e) }
+    try { if (episodeId) await storyboardApi.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ حذف المشهد:', e) }
 
     // Reset active scene if needed
     if (activeSceneId === sceneId) {

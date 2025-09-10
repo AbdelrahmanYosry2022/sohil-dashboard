@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { tabOperations } from '../../../lib/supabase'
+import { textApi } from '../api'
 import { useParams } from 'react-router-dom'
 
 interface Scene {
@@ -28,7 +28,7 @@ export const useTextTab = () => {
   const loadScenes = async () => {
     try {
       setIsLoading(true)
-      const loadedScenes = await tabOperations.text.loadScenes(episodeId!)
+      const loadedScenes = await textApi.loadScenes(episodeId!)
       setScenes(loadedScenes)
     } catch (error) {
       console.error('Error loading scenes:', error)
@@ -43,7 +43,7 @@ export const useTextTab = () => {
 
     try {
       setIsSaving(true)
-      await tabOperations.text.saveScenes(episodeId, scenes)
+      await textApi.saveScenes(episodeId, scenes)
       console.log('تم حفظ جميع المشاهد بنجاح')
     } catch (error) {
       console.error('Error saving scenes:', error)
