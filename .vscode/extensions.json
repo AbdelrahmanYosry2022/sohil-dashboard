@@ -1,3 +1,4 @@
 {
-  "recommendations": ["denoland.vscode-deno"]
+  // Removed Deno extension recommendation.
+  "recommendations": []
 }

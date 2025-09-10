@@ -34,13 +34,36 @@ export const StoryboardDualView: React.FC<StoryboardDualViewProps> = ({
     );
   }
 
+  // Add button component for reusability
+  const AddButton = ({ onClick, className = '' }: { onClick: () => void; className?: string }) => (
+    <Button
+      variant="outline"
+      size="sm"
+      className={`w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground shadow ${className}`}
+      onClick={onClick}
+      aria-label="إضافة إطار"
+    >
+      <Plus size={14} />
+    </Button>
+  );
+
+  // unified wrapper for row-separator buttons (right edge). Using negative margin to pull toward outer border if needed.
+  const ButtonRow: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+    return (
+      <div className="flex justify-end w-full py-2 -mr-4 pr-0">
+        <AddButton onClick={onClick} />
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-0 px-4 flex flex-col items-start" dir="rtl">
+  <ButtonRow onClick={() => onAddFrame(-1)} />
       {displayFrames.map((frame, index) => (
         <React.Fragment key={frame.id}>
-          <div className="flex flex-row-reverse gap-6 items-start p-4">
-              {/* Storyboard Image */}
-              <div className="relative group">
+          <div className="flex flex-row gap-6 items-start p-4 justify-start">
+        {/* Storyboard Image (يمين) */}
+        <div className="relative group flex-shrink-0 order-1">
                 <Card className="w-64 hover:shadow-lg transition-all bg-background relative z-10">
                   <div className="relative">
                     <div 
@@ -90,8 +113,8 @@ export const StoryboardDualView: React.FC<StoryboardDualViewProps> = ({
                 </Card>
               </div>
 
-              {/* Final Art Image */}
-              <div className="relative group">
+              {/* Final Art Image (يسار) */}
+              <div className="relative group flex-shrink-0 order-2">
                 <Card className="w-64 hover:shadow-lg transition-all bg-background relative z-10 border-dashed">
                   <div className="relative">
                     <div className="aspect-video bg-muted/50 rounded-t-lg overflow-hidden cursor-pointer flex items-center justify-center">
@@ -121,19 +144,8 @@ export const StoryboardDualView: React.FC<StoryboardDualViewProps> = ({
               </div>
           </div>
 
-          {/* Add button between frames */}
-          {index < displayFrames.length - 1 && (
-            <div className="flex justify-center py-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground shadow"
-                onClick={() => onAddFrame(index + 1)}
-              >
-                <Plus size={14} />
-              </Button>
-            </div>
-          )}
+          {/* Add button after this row (between or final). Always render; last one acts as after-last-row */}
+          <ButtonRow onClick={() => onAddFrame(index + 1)} />
         </React.Fragment>
       ))}
     </div>
