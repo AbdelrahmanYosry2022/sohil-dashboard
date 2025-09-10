@@ -7,6 +7,8 @@ export type StoryboardFrame = {
   title: string
   description?: string
   thumbnail: string
+  // الصورة النهائية (الرسم النهائي) اختيارية
+  finalThumbnail?: string
   duration: number
   notes?: string
   order: number
@@ -101,6 +103,7 @@ export const storyboardApi = {
             title: content.title || 'Untitled Frame',
             description: content.description || '',
             thumbnail: content.thumbnail || '',
+            finalThumbnail: (content as any).finalThumbnail || '',
             duration: content.duration || 0,
             notes: content.notes || '',
             order: content.order || 0,

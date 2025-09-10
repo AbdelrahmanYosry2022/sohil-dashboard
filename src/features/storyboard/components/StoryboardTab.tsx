@@ -7,22 +7,13 @@ import { Textarea } from '../../../components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '../../../components/ui/dialog'
 import { UnifiedModal } from '../../../components/ui/unified-modal'
 import { storyboardApi, storyboardStorage } from '../api'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu'
 import type { StoryboardFrame, Scene, Folder } from '../types'
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Grid,
-  List,
-  FolderOpen,
-  ArrowRight,
-  ChevronLeft,
-  ZoomOut,
-  ZoomIn,
-  Clock,
-  MessageCircle
-} from 'lucide-react'
+import { Plus, Grid, List, FolderOpen, ArrowRight, ChevronLeft, ZoomOut, ZoomIn, Clock, MessageCircle, Edit, Trash2 } from 'lucide-react'
 import TabHeader from '../../../components/TabHeader'
+import StoryboardSingleView from './StoryboardSingleView'
+import FinalArtView from './FinalArtView'
+import StoryboardDualView from './StoryboardDualView'
 
 // Types are imported from ../types
 
@@ -45,6 +36,9 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
 
   // frames state belongs to the active scene
   const [frames, setFrames] = useState<StoryboardFrame[]>([])
+  const [cardsPerRow, setCardsPerRow] = useState<2 | 3 | 4>(3)
+  // وضع عرض الإطارات: storyboard (الاسكتش) | final (الرسم النهائي) | dual (مزدوج)
+  const [frameDisplayMode, setFrameDisplayMode] = useState<'storyboard' | 'final' | 'dual'>('storyboard')
 
   // zoom/pan for frame editor
   const [zoom, setZoom] = useState(100)
@@ -252,11 +246,10 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
       }
     }
 
-    // Create new frame with proper frameId and duration type
-  const frameId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+    const frameId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
     const newFrame: StoryboardFrame = {
-  id: frameId,
-  frameId: frameId,
+      id: frameId,
+      frameId: frameId,
       title: formData.title.trim() || `إطار جديد ${frames.length + 1}`,
       description: formData.description.trim(),
       thumbnail: thumbnailUrl,
@@ -355,8 +348,8 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
   const openFolder = (folderId: string) => { setActiveFolderId(folderId); setPage('folder') }
   const openScene = (sceneId: string) => { setActiveSceneId(sceneId); setPage('storyboard') }
   const openFrame = (frameId: string) => { 
-  navigate(`/episodes/${episodeId}/storyboard/frame/${frameId}`)
-}
+    navigate(`/episodes/${episodeId}/storyboard/frame/${frameId}`)
+  }
 
   // Folder management functions
   const handleCreateFolder = (data: { name: string; description?: string }) => {
@@ -589,8 +582,8 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
 
   // Storyboard (Timeline) - reuse existing UI and improve
   const StoryboardPage = () => {
-  const sceneFrames = frames.filter(f => f.sceneId === activeSceneId)
-  const unassignedFrames = frames.filter(f => !f.sceneId)
+    const sceneFrames = frames.filter(f => f.sceneId === activeSceneId)
+    const unassignedFrames = frames.filter(f => !f.sceneId)
     return (
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -598,13 +591,37 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
             <Button variant="ghost" size="sm" onClick={() => { setPage('folder'); setActiveFrameId(null); }} className="p-2"><ChevronLeft size={18} /></Button>
             <h2 className="text-xl font-semibold">لوحة الستوري بورد</h2>
           </div>
-          <Button onClick={() => handleCreateFrame()} className="flex items-center gap-2"><Plus size={16} />إطار جديد</Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-muted rounded-lg p-1 text-xs">
+              <Button variant={frameDisplayMode === 'storyboard' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setFrameDisplayMode('storyboard')}>عرض الإطارات</Button>
+              <Button variant={frameDisplayMode === 'final' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setFrameDisplayMode('final')}>عرض الرسم</Button>
+              <Button variant={frameDisplayMode === 'dual' ? 'default' : 'ghost'} size="sm" className="h-7 px-2" onClick={() => setFrameDisplayMode('dual')}>عرض مزدوج</Button>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">عدد الأعمدة:</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 w-9 p-0 flex items-center justify-center">
+                    {cardsPerRow}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  {[2,3,4].map(n => (
+                    <DropdownMenuItem key={n} onClick={() => setCardsPerRow(n as 2|3|4)} className={cardsPerRow === n ? 'bg-accent' : ''}>
+                      {n} كارد في الصف {cardsPerRow === n && '✓'}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <Button onClick={() => handleCreateFrame()} className="flex items-center gap-2"><Plus size={16} />إطار جديد</Button>
+          </div>
         </div>
 
         {/* Tabs for assigned/unassigned frames */}
         <div className="mb-6 flex gap-2">
           <Button
-            variant={activeSceneId ? 'default' : 'secondary'}
+            variant={activeSceneId ? 'secondary' : 'default'}
             size="sm"
             onClick={() => setActiveSceneId(null)}
           >
@@ -627,87 +644,41 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
             <div className="relative max-w-full">
               <div className="space-y-8">
                 {(activeSceneId ? sceneFrames : unassignedFrames).length === 0 ? (
-                  <div className="text-center text-muted-foreground">لا توجد إطارات</div>
-                ) : (
-                  Array.from({ length: Math.ceil(((activeSceneId ? sceneFrames : unassignedFrames).length + 1) / 3) }, (_, rowIndex) => {
-                    const startIndex = rowIndex * 3;
-                    const rowFrames = (activeSceneId ? sceneFrames : unassignedFrames).slice(startIndex, startIndex + 3);
-                    return (
-                      <div key={rowIndex} className="flex items-center gap-4">
-                        {/* خط قبل الكارد الأول في كل صف */}
-                        <div className="relative group/separator flex items-center justify-center" style={{ width: '32px', height: '256px' }}>
-                          {/* الخط الفاصل */}
-                          <div className="absolute top-1/2 left-1/2 w-8 h-0.5 bg-border -translate-x-1/2 -translate-y-1/2 z-5" />
-                          {/* علامة الزائد أعلى الخط */}
-                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/separator:opacity-100 transition-all duration-200 z-30">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-lg"
-                              onClick={() => handleCreateFrame(startIndex - 1)}
-                            >
-                              <Plus size={14} />
-                            </Button>
-                          </div>
-                        </div>
-                        {/* الكاردات في الصف */}
-                        {rowFrames.map((frame, cardIndex) => {
-                          const globalIndex = startIndex + cardIndex;
-                          return (
-                            <React.Fragment key={frame.id}>
-                              {/* الكارد */}
-                              <div key={`frame-${frame.id}`} className="relative group">
-                                <Card className="w-64 hover:shadow-lg transition-all bg-background relative z-10">
-                                  <div className="relative">
-                                    <div className="aspect-video bg-muted rounded-t-lg overflow-hidden cursor-pointer" onClick={() => openFrame(frame.id)}>
-                                      <img src={frame.thumbnail} alt={frame.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                    </div>
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-background/80 hover:bg-background" onClick={() => handleEditFrame(frame)}><Edit size={12} /></Button>
-                                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-background/80 hover:bg-destructive hover:text-destructive-foreground" onClick={async () => await handleDeleteFrame(frame.id)}><Trash2 size={12} /></Button>
-                                    </div>
-                                  </div>
-                                  <CardContent className="p-4">
-                                    <div className="space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <h3 className="font-semibold text-sm">{frame.title}</h3>
-                                        <span className="text-xs text-muted-foreground">#{frame.order}</span>
-                                      </div>
-                                      <p className="text-xs text-muted-foreground line-clamp-2">{frame.description}</p>
-                                      <div className="flex items-center justify_between text-xs text-muted-foreground">
-                                        <div className="flex items-center gap-1"><Clock size={12} /><span>{frame.duration}</span></div>
-                                        {frame.notes && (<div className="flex items-center gap-1"><MessageCircle size={12} /><span>ملاحظات</span></div>)}
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              </div>
-                              {/* خط قبل الكارد التالي في نفس الصف */}
-                              {cardIndex < rowFrames.length - 1 && (
-                                <div key={`separator-${globalIndex}`} className="relative group/separator flex items-center justify-center" style={{ width: '32px', height: '256px' }}>
-                                  {/* الخط الفاصل */}
-                                  <div className="absolute top-1/2 left-1/2 w-8 h-0.5 bg-border -translate-x-1/2 -translate-y-1/2 z-5" />
-                                  {/* علامة الزائد أعلى الخط */}
-                                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover/separator:opacity-100 transition-all duration-200 z-30">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm" 
-                                      className="w-8 h-8 p-0 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all shadow-lg"
-                                      onClick={() => handleCreateFrame(globalIndex)}
-                                    >
-                                      <Plus size={14} />
-                                    </Button>
-                                  </div>
-                                </div>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                        {/* أزلنا الخط بعد آخر كارد حسب الطلب */}
-                      </div>
-                    );
-                  })
-                )}
+                  <div className="text-center text-muted-foreground">
+                    {frameDisplayMode === 'storyboard' && 'لا توجد إطارات'}
+                    {frameDisplayMode === 'final' && 'لا توجد رسومات نهائية'}
+                    {frameDisplayMode === 'dual' && 'لا توجد إطارات لعرضها'}
+                  </div>
+                ) : frameDisplayMode === 'dual' ? (
+                  <StoryboardDualView
+                    frames={activeSceneId ? sceneFrames : unassignedFrames}
+                    onEditFrame={handleEditFrame}
+                    onDeleteFrame={handleDeleteFrame}
+                    onAddFrame={handleCreateFrame}
+                    onOpenFrame={openFrame}
+                    activeSceneId={activeSceneId}
+                    sceneFrames={sceneFrames}
+                    unassignedFrames={unassignedFrames}
+                  />
+                ) : frameDisplayMode === 'storyboard' ? (
+                  <StoryboardSingleView
+                    frames={activeSceneId ? sceneFrames : unassignedFrames}
+                    onEditFrame={handleEditFrame}
+                    onDeleteFrame={handleDeleteFrame}
+                    onOpenFrame={openFrame}
+                    onAddFrame={handleCreateFrame}
+                    cardsPerRow={cardsPerRow}
+                  />
+                ) : frameDisplayMode === 'final' ? (
+                  <FinalArtView
+                    frames={activeSceneId ? sceneFrames : unassignedFrames}
+                    onEditFrame={handleEditFrame}
+                    onDeleteFrame={handleDeleteFrame}
+                    onOpenFrame={openFrame}
+                    onAddFrame={handleCreateFrame}
+                    cardsPerRow={cardsPerRow}
+                  />
+                ) : null}
               </div>
             </div>
           </CardContent>
@@ -765,12 +736,12 @@ export default function StoryboardTab({ episodeId }: StoryboardTabProps) {
                 <div>
                   <label className="text-sm font-medium mb-2 block">المدة</label>
                   <Input 
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: e.target.value.replace(/[^0-9.]/g, '') })}
-                />
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={formData.duration}
+                    onChange={(e) => setFormData({ ...formData, duration: e.target.value.replace(/[^0-9.]/g, '') })}
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium mb-2 block">ملاحظات</label>

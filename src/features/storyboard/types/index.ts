@@ -4,6 +4,8 @@ export interface StoryboardFrame {
   title: string;
   description: string;
   thumbnail: string;
+  // الصورة النهائية (الرسم النهائي) اختيارية
+  finalThumbnail?: string;
   duration: number;
   notes: string;
   order: number;
