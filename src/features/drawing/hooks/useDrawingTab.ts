@@ -1,320 +1,539 @@
-import { useState, useRef } from 'react'
-
-interface Scene {
-  id: string
-  title: string
-  thumbnail: string
-  status: 'draft' | 'review' | 'changes' | 'approved'
-  shots: number
-  comments: number
-  lastUpdateISO: string
-}
-
-interface Folder {
-  id: string
-  name: string
-  order: number
-  scenes: Scene[]
-}
-
-interface Version {
-  id: string
-  name: string
-  createdAt: string
-  thumbnail: string
-  status: 'draft' | 'review' | 'changes' | 'approved'
-  notes?: string
-}
-
-interface Comment {
-  id: string
-  author: string
-  role: string
-  at: string
-  text: string
-  status: 'open' | 'resolved'
-  pin?: { xPct: number; yPct: number }
-}
+import { useRef, useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { drawingApi, drawingStorage } from '../api'
+import type { StoryboardFrame, Scene, Folder } from '../types'
 
 export const useDrawingTab = () => {
-  // Page and view state
-  const [page, setPage] = useState('library') // 'library' | 'folder' | 'review'
-  const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
+  const { id: episodeId } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   
-  // Data state
-  const [folders, setFolders] = useState<Folder[]>([
-    {
-      id: 'f-01',
-      name: 'المقدمة – الحلقة 01',
-      order: 1,
-      scenes: [
-        {
-          id: 's-01',
-          title: 'المشهد 01 – الافتتاح',
-          thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
-          status: 'approved',
-          shots: 8,
-          comments: 0,
-          lastUpdateISO: '2025-08-24T10:00:00Z'
-        },
-        {
-          id: 's-02',
-          title: 'المشهد 02 – اكتشاف الكتاب',
-          thumbnail: 'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?q=80&w=800&auto=format&fit=crop',
-          status: 'review',
-          shots: 12,
-          comments: 3,
-          lastUpdateISO: '2025-08-26T12:30:00Z'
-        }
-      ]
-    },
-    {
-      id: 'f-02',
-      name: 'منتصف الحلقة – الأكشن',
-      order: 2,
-      scenes: [
-        {
-          id: 's-03',
-          title: 'المشهد 03 – التحوّل',
-          thumbnail: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=800&auto=format&fit=crop',
-          status: 'changes',
-          shots: 16,
-          comments: 2,
-          lastUpdateISO: '2025-08-25T15:15:00Z'
-        }
-      ]
-    }
-  ])
-  
-  // Active states
+  // navigation state
+  const [page, setPage] = useState<'library' | 'folder' | 'storyboard' | 'frame'>('library')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null)
   const [activeSceneId, setActiveSceneId] = useState<string | null>(null)
-  
-  // Dialog states
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
-  const [newFolderName, setNewFolderName] = useState('')
-  
-  // Modal states
-  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
-  const [isSceneModalOpen, setIsSceneModalOpen] = useState(false)
-  
-  // Review page states
+  const [activeFrameId, setActiveFrameId] = useState<string | null>(null)
+
+  // data state
+  const [folders, setFolders] = useState<Folder[]>([])
+  const [frames, setFrames] = useState<StoryboardFrame[]>([])
+
+  // zoom/pan for frame editor
   const [zoom, setZoom] = useState(100)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const viewerRef = useRef<HTMLDivElement>(null)
+
+  // dialog states
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingFrame, setEditingFrame] = useState<StoryboardFrame | null>(null)
+  const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null)
   
-  // Sample data for review page
-  const [versions] = useState<Version[]>([
-    {
-      id: 'v1',
-      name: 'الإصدار 1.0',
-      createdAt: '2025-08-24T10:00:00Z',
-      thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
-      status: 'approved',
-      notes: 'الإصدار الأولي'
-    },
-    {
-      id: 'v2',
-      name: 'الإصدار 1.1',
-      createdAt: '2025-08-26T12:30:00Z',
-      thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
-      status: 'review',
-      notes: 'تحديثات على الإضاءة'
+  // modal states
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false)
+  const [isSceneModalOpen, setIsSceneModalOpen] = useState(false)
+  const [isSceneEditOpen, setIsSceneEditOpen] = useState(false)
+  const [editingScene, setEditingScene] = useState<Scene | null>(null)
+  
+  // form state
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    duration: '',
+    notes: '',
+    image: null as File | null
+  })
+  
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Load saved storyboard data from Supabase when episode changes
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (!episodeId) return
+      try {
+        const savedFolders = await drawingApi.loadFolders(episodeId)
+        
+        const mapped = (savedFolders || []).map((f: any) => ({
+          id: f.folderId || f.id,
+          name: f.name || '',
+          scenes: (f.scenes || []).map((s: any) => ({
+            id: s.sceneId || s.id,
+            title: s.title || '',
+            thumbnail: s.thumbnail || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPtmF2LTZh9ivPC90ZXh0Pjwvc3ZnPg==',
+            description: s.description || ''
+          }))
+        }))
+        
+        setFolders(mapped)
+
+        const savedFrames = await drawingApi.loadFrames(episodeId)
+        if (savedFrames && savedFrames.length > 0) {
+          setFrames(savedFrames as unknown as StoryboardFrame[])
+        }
+        
+        // Ensure there is a selected folder/scene to continue navigation UX
+        if (!activeFolderId && mapped.length > 0) {
+          setActiveFolderId(mapped[0].id)
+        }
+        if (!activeSceneId && mapped.length > 0 && mapped[0].scenes.length > 0) {
+          const firstScene = mapped[0].scenes[0]
+          setActiveSceneId(firstScene.sceneId || firstScene.id)
+        }
+      } catch (e) {
+        console.error('فشل تحميل إطارات الرسم من قاعدة البيانات:', e)
+      }
     }
-  ])
-  
-  const [comments] = useState<Comment[]>([
-    {
-      id: 'c1',
-      author: 'أحمد محمد',
-      role: 'مخرج',
-      at: '2025-08-26T14:30:00Z',
-      text: 'يحتاج تعديل في الإضاءة هنا',
-      status: 'open',
-      pin: { xPct: 45, yPct: 30 }
-    },
-    {
-      id: 'c2',
-      author: 'فاطمة علي',
-      role: 'مصممة',
-      at: '2025-08-26T15:00:00Z',
-      text: 'ممتاز! الألوان متناسقة',
-      status: 'resolved'
-    }
-  ])
-  
-  // Helper functions
-  const createFolder = () => {
-    setIsFolderModalOpen(true)
+    loadInitialData()
+  }, [episodeId, activeFolderId, activeSceneId])
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      duration: '',
+      notes: '',
+      image: null
+    })
+    setImagePreview(null)
+    setIsUploading(false)
   }
-  
-  const handleCreateFolder = (data: { name: string; description?: string }) => {
-    const newFolder: Folder = {
-      id: `folder-${Date.now()}`,
-      name: data.name,
-      order: folders.length,
-      scenes: []
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !episodeId) return
+
+    // Check file size (5MB max)
+    const maxSize = 5 * 1024 * 1024 // 5MB in bytes
+    if (file.size > maxSize) {
+      alert('حجم الصورة كبير جداً. الحد الأقصى المسموح به هو 5 ميجابايت.')
+      e.target.value = '' // Clear the input
+      return
     }
-    setFolders([...folders, newFolder])
-    setIsFolderModalOpen(false)
-  }
-  
-  const handleCreateScene = (data: { name: string; description?: string }) => {
-    if (!activeFolderId) return
+
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      alert('نوع الملف غير مدعوم. يرجى اختيار صورة بصيغة JPG أو PNG أو WebP.')
+      e.target.value = '' // Clear the input
+      return
+    }
+
+    setFormData({ ...formData, image: file })
     
-    const newScene: Scene = {
-      id: `scene-${Date.now()}`,
-      title: data.name,
-      thumbnail: 'https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=800&auto=format&fit=crop',
-      status: 'draft',
-      shots: 0,
-      comments: 0,
-      lastUpdateISO: new Date().toISOString()
+    // Create preview using FileReader for immediate display
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string)
     }
-    
-    setFolders(prev => prev.map(folder => 
-      folder.id === activeFolderId 
-        ? { ...folder, scenes: [...folder.scenes, newScene] }
-        : folder
-    ))
-    setIsSceneModalOpen(false)
+    reader.readAsDataURL(file)
   }
-  
-  const handleEditFolder = (folder: Folder) => {
-    setEditingFolder(folder)
-    setNewFolderName(folder.name)
+
+  const handleCreateFrame = (afterIndex?: number) => {
+    setInsertAfterIndex(afterIndex ?? null)
+    resetForm()
+    setIsCreateDialogOpen(true)
+  }
+
+  const handleEditFrame = (frame: StoryboardFrame) => {
+    setEditingFrame({
+      ...frame,
+      duration: typeof frame.duration === 'string' ? parseFloat(frame.duration) || 0 : frame.duration
+    })
+    setFormData({
+      title: frame.title,
+      description: frame.description,
+      duration: frame.duration.toString(),
+      notes: frame.notes,
+      image: null
+    })
+    setImagePreview(frame.thumbnail)
     setIsEditDialogOpen(true)
   }
-  
-  const handleUpdateFolder = () => {
-    if (!editingFolder || !newFolderName.trim()) return
-    
-    setFolders(folders.map(folder => 
-      folder.id === editingFolder.id 
-        ? { ...folder, name: newFolderName.trim() }
-        : folder
-    ))
-    setIsEditDialogOpen(false)
-    setEditingFolder(null)
-    setNewFolderName('')
-  }
-  
-  const handleDeleteFolder = (folderId: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المجلد؟ سيتم حذف جميع المشاهد بداخله.')) {
-      setFolders(folders.filter(folder => folder.id !== folderId))
+
+  const handleDeleteFrame = async (frameId: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا الإطار؟')) {
+      const frameToDelete = frames.find(frame => frame.id === frameId)
+      
+      // Delete image from Supabase Storage if it's not a default image
+      if (frameToDelete && episodeId && frameToDelete.thumbnail && 
+          !frameToDelete.thumbnail.startsWith('data:image/svg+xml')) {
+        const fileName = frameToDelete.thumbnail.split('/').pop()
+        if (fileName) {
+          await drawingStorage.deleteFrameImage(episodeId, fileName)
+        }
+      }
+
+      // Delete final art image if exists
+      if (frameToDelete?.finalArtPath) {
+        try {
+          await drawingStorage.deleteFinalArtImage(frameToDelete.finalArtPath)
+        } catch (error) {
+          console.error('❌ Failed to delete final art image for frame:', frameToDelete.id, error)
+        }
+      }
+      
+      let updated = frames.filter(frame => frame.id !== frameId)
+
+      // إعادة ترقيم الإطارات داخل المشهد الحالي فقط
+      const activeScene = folders.find(f => f.id === activeFolderId)?.scenes.find(s => s.id === activeSceneId)
+      const sceneName = activeScene?.title || 'المشهد'
+
+      const sceneFrames = updated.filter(f => f.sceneId === activeSceneId)
+      const otherFrames = updated.filter(f => f.sceneId !== activeSceneId)
+
+      const renumbered = sceneFrames.map((frame, index) => ({
+        ...frame,
+        frameId: frame.frameId || frame.id, // Ensure frameId is always set
+        title: `${sceneName} - إطار ${String(index + 1).padStart(2, '0')}`,
+        order: index + 1
+      }))
+      updated = [...renumbered, ...otherFrames]
+      
+      setFrames(updated)
+      // Persist changes
+      try {
+        if (episodeId) {
+          await drawingApi.saveFrames(episodeId, updated)
+        }
+      } catch (e) {
+        console.error('فشل حفظ الإطارات بعد الحذف:', e)
+      }
     }
   }
-  
-  const renameFolder = (folderId: string, newName: string) => {
-    setFolders(folders.map(f => f.id === folderId ? { ...f, name: newName } : f))
-  }
-  
-  const reorderFolders = (fromIndex: number, toIndex: number) => {
-    const newFolders = [...folders]
-    const [moved] = newFolders.splice(fromIndex, 1)
-    newFolders.splice(toIndex, 0, moved)
-    setFolders(newFolders.map((f, i) => ({ ...f, order: i + 1 })))
-  }
-  
-  const moveScene = (sceneId: string, fromFolderId: string, toFolderId: string) => {
-    const fromFolder = folders.find(f => f.id === fromFolderId)
-    const scene = fromFolder?.scenes.find(s => s.id === sceneId)
-    if (!scene) return
+
+  const submitCreateFrame = async () => {
+    if (!formData.description.trim() || !episodeId) return
+
+    let thumbnailUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPtmF2LTZh9ivPC90ZXh0Pjwvc3ZnPg=='
     
-    setFolders(folders.map(f => {
-      if (f.id === fromFolderId) {
-        return { ...f, scenes: f.scenes.filter(s => s.id !== sceneId) }
+    // Upload image to Supabase Storage if provided
+    if (formData.image) {
+      try {
+        setIsUploading(true)
+        console.log('🔄 بدء رفع الصورة...', formData.image.name)
+  const fileName = `drawing-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+        const uploadedUrl = await drawingStorage.uploadFrameImage(episodeId, fileName, formData.image)
+        
+        if (uploadedUrl) {
+          thumbnailUrl = uploadedUrl
+          console.log('✅ تم رفع الصورة بنجاح:', uploadedUrl)
+        } else {
+          console.error('❌ فشل في رفع الصورة')
+          alert('فشل في رفع الصورة. يرجى المحاولة مرة أخرى أو التحقق من اتصال الإنترنت.')
+          setIsUploading(false)
+          return
+        }
+      } catch (error) {
+        console.error('❌ خطأ في رفع الصورة:', error)
+        alert('حدث خطأ أثناء رفع الصورة. يرجى المحاولة مرة أخرى.')
+        setIsUploading(false)
+        return
+      } finally {
+        setIsUploading(false)
       }
-      if (f.id === toFolderId) {
-        return { ...f, scenes: [...f.scenes, scene] }
-      }
-      return f
+    }
+
+    // Create new frame with proper frameId and duration type
+    const newFrame: StoryboardFrame = {
+      id: `sb-f-${Date.now()}`,
+      frameId: `sb-f-${Date.now()}`,
+      title: formData.title.trim() || `إطار جديد ${frames.length + 1}`,
+      description: formData.description.trim(),
+      thumbnail: thumbnailUrl,
+  frameType: 'storyboard',
+      duration: formData.duration ? Number(formData.duration) : 2,
+      notes: formData.notes.trim(),
+      order: insertAfterIndex !== null ? insertAfterIndex + 1 : frames.length + 1,
+      sceneId: activeSceneId || undefined
+    }
+
+    let newFrames = [...frames]
+    newFrames.push(newFrame)
+
+    // إعادة ترقيم الإطارات وتطبيق التسمية التلقائية
+    const activeScene = folders.find(f => f.id === activeFolderId)?.scenes.find(s => s.id === activeSceneId)
+    const sceneName = activeScene?.title || 'المشهد'
+    
+    const sceneFrames = newFrames.filter(f => f.sceneId === activeSceneId)
+    const otherFrames = newFrames.filter(f => f.sceneId !== activeSceneId)
+    const renumbered = sceneFrames.map((frame, index) => ({
+      ...frame,
+      title: `${sceneName} - إطار ${String(index + 1).padStart(2, '0')}`,
+      order: index + 1
     }))
+    newFrames = [...renumbered, ...otherFrames]
+
+    setFrames(newFrames)
+    // Persist new frames to Supabase
+    try {
+      await drawingApi.saveFrames(episodeId, newFrames)
+    } catch (e) {
+      console.error('فشل حفظ الإطارات بعد الإضافة:', e)
+    }
+    setIsCreateDialogOpen(false)
+    setInsertAfterIndex(null)
+    resetForm()
   }
-  
-  const openScene = (sceneId: string) => {
-    setActiveSceneId(sceneId)
-    setPage('review')
+
+  const submitEditFrame = async () => {
+    if (!editingFrame || !formData.title.trim() || !episodeId) return
+
+    let thumbnailUrl = editingFrame.thumbnail
+    
+    // Upload new image to Supabase Storage if provided
+    if (formData.image) {
+      try {
+        setIsUploading(true)
+        console.log('🔄 بدء رفع الصورة الجديدة...', formData.image.name)
+  const fileName = `drawing-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+        const uploadedUrl = await drawingStorage.uploadFrameImage(episodeId, fileName, formData.image)
+        
+        if (uploadedUrl) {
+          thumbnailUrl = uploadedUrl
+          console.log('✅ تم رفع الصورة الجديدة بنجاح:', uploadedUrl)
+        } else {
+          console.error('❌ فشل في رفع الصورة الجديدة')
+          alert('فشل في رفع الصورة الجديدة. يرجى المحاولة مرة أخرى أو التحقق من اتصال الإنترنت.')
+          setIsUploading(false)
+          return
+        }
+      } catch (error) {
+        console.error('❌ خطأ في رفع الصورة الجديدة:', error)
+        alert('حدث خطأ أثناء رفع الصورة الجديدة. يرجى المحاولة مرة أخرى.')
+        setIsUploading(false)
+        return
+      } finally {
+        setIsUploading(false)
+      }
+    }
+
+    const updated = frames.map(frame =>
+      frame.id === editingFrame.id
+        ? {
+            ...frame,
+            title: formData.title.trim(),
+            description: formData.description.trim(),
+            duration: formData.duration ? Number(formData.duration) : 2,
+            notes: formData.notes.trim(),
+            thumbnail: thumbnailUrl
+          }
+        : frame
+    )
+    setFrames(updated)
+    // Persist changes
+    try {
+      await drawingApi.saveFrames(episodeId, updated)
+    } catch (e) {
+      console.error('فشل حفظ الإطارات بعد التعديل:', e)
+    }
+    setIsEditDialogOpen(false)
+    setEditingFrame(null)
+    resetForm()
   }
-  
-  const openFolder = (folderId: string) => {
-    setActiveFolderId(folderId)
-    setPage('folder')
+
+  // navigation helpers
+  const openFolder = (folderId: string) => { setActiveFolderId(folderId); setPage('folder') }
+  const openScene = (sceneId: string) => { setActiveSceneId(sceneId); setPage('storyboard') }
+  const openFrame = (frameId: string) => { 
+  navigate(`/episodes/${episodeId}/storyboard/frame/${frameId}`)
   }
-  
-  const getStatusBadge = (status: string) => {
-    const variant = status === 'approved' ? 'default' : status === 'review' ? 'outline' : status === 'changes' ? 'destructive' : 'secondary'
-    const label = status === 'draft' ? 'مسودة' : status === 'review' ? 'مراجعة' : status === 'changes' ? 'تعديلات' : status === 'approved' ? 'معتمد' : status
-    return { variant, label }
+
+  // Folder management functions
+  const handleCreateFolder = async (data: { name: string; description?: string }) => {
+    // 👇 الخطوة 1: أضف هذا السطر للتحقق من قيمة episodeId
+    console.log('--- Attempting to create folder. Current Episode ID is:', episodeId);
+
+    if (!episodeId) {
+      console.error("STOP: Episode ID is missing, cannot save folder.");
+      alert("لا يمكن حفظ المجلد لأنه لا يوجد معرّف للحلقة. يرجى تحديث الصفحة والمحاولة مرة أخرى.");
+      return;
+    }
+
+    const newFolder: Folder = {
+      id: `sb-f-${Date.now()}`,
+      name: data.name,
+      scenes: []
+    };
+
+    const oldFolders = folders;
+    const updatedFolders = [...oldFolders, newFolder];
+    setFolders(updatedFolders);
+
+    try {
+      console.log('--- Sending data to saveFolders API:', updatedFolders); // 💡 وأضف هذا السطر أيضًا
+      await drawingApi.saveFolders(episodeId, updatedFolders);
+      console.log('✅ Folder saved to database successfully!');
+    } catch (e) {
+      console.error('--- FAILED to save the new folder:', e);
+      alert('حدث خطأ أثناء حفظ المجلد، يرجى المحاولة مرة أخرى.');
+      setFolders(oldFolders); 
+    }
+  };
+
+  // Scene management functions
+  const handleCreateScene = async (data: { name: string; description?: string }) => {
+    if (!activeFolderId) return
+    console.log('🔄 جاري إنشاء مشهد جديد...', data);
+    const newScene: Scene = {
+      id: `sb-s-${Date.now()}`,
+      title: data.name,
+      thumbnail: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjYwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPtmF2LTZh9ivPC90ZXh0Pjwvc3ZnPg==',
+      description: data.description || ''
+    }
+    
+    let updated: Folder[] = []
+    setFolders(prev => {
+      updated = prev.map(folder => 
+        folder.id === activeFolderId 
+          ? { ...folder, scenes: [...folder.scenes, newScene] }
+          : folder
+      )
+      return updated
+    })
+    console.log('📊 حالة المجلدات بعد إضافة المشهد الجديد:', updated);
+    
+    // تحديث المشهد النشط ليعرض المشهد الجديد الذي تم إنشاؤه
+    setActiveSceneId(newScene.id)
+    setPage('storyboard')
+    
+    try {
+      if (episodeId) await drawingApi.saveFolders(episodeId, updated)
+    } catch (e) { console.error('فشل حفظ المشاهد:', e) }
   }
-  
-  // Zoom and pan functions
-  const zoomIn = () => setZoom(Math.min(200, zoom + 25))
-  const zoomOut = () => setZoom(Math.max(25, zoom - 25))
-  const resetView = () => {
-    setZoom(100)
-    setPan({ x: 0, y: 0 })
+
+  // Scene edit/delete handlers
+  const handleEditScene = (scene: Scene) => {
+    setEditingScene(scene)
+    setIsSceneEditOpen(true)
   }
-  
-  // Get current folder and scene
-  const currentFolder = folders.find(f => f.id === activeFolderId)
-  const currentScene = folders.flatMap(f => f.scenes).find(s => s.id === activeSceneId)
-  
+
+  const saveEditedScene = async () => {
+    if (!editingScene) return
+    let updated: Folder[] = []
+    setFolders(prev => {
+      updated = prev.map(folder =>
+        folder.id === activeFolderId
+          ? {
+              ...folder,
+              scenes: folder.scenes.map(s => s.id === editingScene.id ? { ...s, ...editingScene } : s)
+            }
+          : folder
+      )
+      return updated
+    })
+    try { if (episodeId) await drawingApi.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ تعديل المشهد:', e) }
+    setIsSceneEditOpen(false)
+    setEditingScene(null)
+  }
+
+  const handleDeleteScene = async (sceneId: string) => {
+    if (!activeFolderId) return
+    const confirmed = window.confirm('سيتم حذف المشهد وجميع الإطارات بداخله. هل أنت متأكد؟')
+    if (!confirmed) return
+
+    // Delete frames thumbnails from storage when applicable
+    const framesToDelete = frames.filter(f => f.sceneId === sceneId)
+    if (episodeId) {
+      for (const f of framesToDelete) {
+        if (f.thumbnail && !f.thumbnail.startsWith('data:image/svg+xml')) {
+          const fileName = f.thumbnail.split('/').pop()
+          if (fileName) {
+            try { await drawingStorage.deleteFrameImage(episodeId, fileName) } catch {}
+          }
+        }
+
+        // Also delete final art file if linked
+        if (f.finalArtPath) {
+          try { await drawingStorage.deleteFinalArtImage(f.finalArtPath) } catch (e) {
+            console.error('❌ Failed to delete final art image for scene frame:', f.id, e)
+          }
+        }
+      }
+    }
+
+    // Remove frames for this scene
+    const remainingFrames = frames.filter(f => f.sceneId !== sceneId)
+    setFrames(remainingFrames)
+    // Persist frames update
+    try { if (episodeId) await drawingApi.saveFrames(episodeId, remainingFrames) } catch (e) { console.error(e) }
+
+    // Remove the scene from folder
+    let updated: Folder[] = []
+    setFolders(prev => {
+      updated = prev.map(folder => 
+        folder.id === activeFolderId
+          ? { ...folder, scenes: folder.scenes.filter(s => s.id !== sceneId) }
+          : folder
+      )
+      return updated
+    })
+    try { if (episodeId) await drawingApi.saveFolders(episodeId, updated) } catch (e) { console.error('فشل حفظ حذف المشهد:', e) }
+
+    // Reset active scene if needed
+    if (activeSceneId === sceneId) {
+      setActiveSceneId(null)
+      setPage('folder')
+    }
+  }
+
   return {
     // State
     page,
     viewMode,
-    folders,
     activeFolderId,
     activeSceneId,
-    isCreateDialogOpen,
-    isEditDialogOpen,
-    editingFolder,
-    newFolderName,
-    isFolderModalOpen,
-    isSceneModalOpen,
+    activeFrameId,
+    folders,
+    frames,
     zoom,
     pan,
     viewerRef,
-    versions,
-    comments,
-    currentFolder,
-    currentScene,
+    isCreateDialogOpen,
+    isEditDialogOpen,
+    editingFrame,
+    insertAfterIndex,
+    isFolderModalOpen,
+    isSceneModalOpen,
+    isSceneEditOpen,
+    editingScene,
+    formData,
+    imagePreview,
+    isUploading,
+    episodeId,
     
     // Actions
     setPage,
     setViewMode,
-    setFolders,
     setActiveFolderId,
     setActiveSceneId,
-    setIsCreateDialogOpen,
-    setIsEditDialogOpen,
-    setEditingFolder,
-    setNewFolderName,
-    setIsFolderModalOpen,
-    setIsSceneModalOpen,
+    setActiveFrameId,
     setZoom,
     setPan,
+    setIsCreateDialogOpen,
+    setIsEditDialogOpen,
+    setIsFolderModalOpen,
+    setIsSceneModalOpen,
+    setIsSceneEditOpen,
+    setEditingScene,
+    setFormData,
+    setImagePreview,
     
     // Functions
-    createFolder,
+    resetForm,
+    handleImageUpload,
+    handleCreateFrame,
+    handleEditFrame,
+    handleDeleteFrame,
+    submitCreateFrame,
+    submitEditFrame,
+    openFolder,
+    openScene,
+    openFrame,
     handleCreateFolder,
     handleCreateScene,
-    handleEditFolder,
-    handleUpdateFolder,
-    handleDeleteFolder,
-    renameFolder,
-    reorderFolders,
-    moveScene,
-    openScene,
-    openFolder,
-    getStatusBadge,
-    zoomIn,
-    zoomOut,
-    resetView
+    handleEditScene,
+    saveEditedScene,
+    handleDeleteScene
   }
 }
-
-export type { Scene, Folder, Version, Comment }

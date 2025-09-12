@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Map features/drawing to the correct path
+      'features/drawing': fileURLToPath(new URL('./src/features/drawing', import.meta.url)),
     },
   },
   server: {

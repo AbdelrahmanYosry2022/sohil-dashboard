@@ -4,7 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import App from './App'
 import Episodes from './pages/Episodes'
 import EpisodeDetail from './pages/EpisodeDetail'
-import StoryboardFrameTab from './features/storyboard/components/StoryboardFrameTab'
+import DrawingFrameTab from './features/drawing/components/DrawingFrameTab'
 
 import { storageOperations } from './lib/supabase'
 import './styles/globals.css'
@@ -14,7 +14,7 @@ const router = createBrowserRouter([
   { path: '/', element: <App /> },
   { path: '/episodes', element: <Episodes /> },
   { path: '/episodes/:id', element: <EpisodeDetail /> },
-  { path: '/episodes/:id/storyboard/frame/:frameId', element: <StoryboardFrameTab /> },
+  { path: '/episodes/:id/storyboard/frame/:frameId', element: <DrawingFrameTab /> },
 
 ])
 

@@ -14,7 +14,8 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "features/drawing/*": ["./src/features/storyboard/*"]
     },
     "types": ["node"]
   },

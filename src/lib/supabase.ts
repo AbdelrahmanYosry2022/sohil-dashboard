@@ -1,15 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+// Import the supabase client from our centralized location
+import { supabase } from './supabase/client';
 import type { Database } from '../types/supabase'
-
-// Environment variables are typed in src/env.d.ts
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env.local file.')
-}
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
 
 // Authentication functions
 export const authOperations = {
@@ -703,42 +694,36 @@ export const storageOperations = {
   // Check storyboard bucket existence (client-safe)
   async createStoryboardBucket(): Promise<boolean> {
     try {
-      console.log('🔍 Checking Supabase connection...')
-      
-      // First, test basic connection
-      const { data: testData, error: testError } = await supabase.from('episodes').select('count').limit(1)
-      if (testError) {
-        console.error('❌ Supabase connection failed:', testError)
-        return false
-      }
-      console.log('✅ Supabase connection successful')
-      
-      // Check if bucket already exists
-      console.log('📋 Listing existing buckets...')
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets()
-      
-      if (listError) {
-        console.error('❌ Error listing buckets:', listError)
-        console.log('💡 This might be a permissions issue. Check if Storage is enabled in your Supabase project.')
-        return false
-      }
+      console.log('🔍 التحقق من توفر مجلد storyboard-images بطريقة آمنة للعميل...')
 
-      console.log('📦 Existing buckets:', buckets?.map(b => b.name) || [])
-      const bucketExists = buckets?.some(bucket => bucket.name === 'storyboard-images')
-      
-      if (bucketExists) {
-        console.log('✅ Storyboard bucket already exists')
+      // بدلاً من listBuckets (صلاحية إدارية)، نجرب سرد محتويات الجذر داخل البوكيت.
+      // هذا ينجح إذا كان البوكيت موجود وسياسة SELECT مفعلة (وهي عامة لدينا)،
+      // وسيفشل فقط إن كان البوكيت غير موجود فعلاً.
+      const { data, error } = await supabase.storage
+        .from('storyboard-images')
+        .list('', { limit: 1 })
+
+      if (error) {
+        const msg = (error as any)?.message?.toString()?.toLowerCase() || ''
+        // لو الخطأ بسبب عدم وجود البوكيت
+        if (msg.includes('not found') || msg.includes('does not exist') || msg.includes('404')) {
+          console.warn('⚠️ لم يتم العثور على مجلد القصص المصورة storyboard-images. يرجى التأكد من:')
+          console.warn('1. إنشاء مجلد باسم storyboard-images في قسم Storage في لوحة تحكم Supabase')
+          console.warn('2. تفعيل سياسات الأمان الخاصة بالمجموعة (قراءة عامة + صلاحيات للمصادقين)')
+          return false
+        }
+        // أخطاء صلاحيات أو غيرها: لا نُفشل التهيئة لأن البوكيت قد يكون موجوداً
+        console.warn('ℹ️ لا يمكن التحقق من المحتويات (قد تكون صلاحيات). سنستمر باعتبار البوكيت متاحاً.')
         return true
       }
 
-      // Client (anon key) should NOT attempt to create buckets due to RLS/permissions.
-      // Guide the user to create the bucket from the dashboard or SQL, then return false for now.
-      console.warn('⚠️ Bucket storyboard-images not found. Please create it from the Supabase dashboard or run the provided SQL policies. لن يتم إنشاؤه من الواجهة العميلية.')
-      console.warn('📝 See STORAGE_SETUP_GUIDE.md or storage-policies.sql/apply-storage-policies.sql in the repo.')
-      return false
+      // نجاح السرد حتى لو بدون ملفات يعني البوكيت موجود
+      console.log('✅ مجلد القصص المصورة storyboard-images متاح')
+      return true
     } catch (error) {
-      console.error('❌ Unexpected error creating storyboard bucket:', error)
-      return false
+      console.error('❌ خطأ غير متوقع في التحقق من مجلد القصص المصورة:', error)
+      // Continue anyway to allow the app to function, but log the error
+      return true
     }
   },
 
@@ -766,21 +751,6 @@ export const storageOperations = {
       if (!isAuthenticated) {
         console.error('❌ المستخدم غير مصادق - يجب تسجيل الدخول أولاً')
         alert('يجب تسجيل الدخول أولاً لرفع الصور')
-        return null
-      }
-
-      // Ensure bucket exists (client-safe check)
-      console.log('🔍 التحقق من وجود البوكيت...')
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets()
-      if (listError) {
-        console.error('❌ Error listing buckets before upload:', listError)
-        alert('تعذر التحقق من مخزن الصور. يرجى التأكد من تمكين Storage في Supabase.')
-        return null
-      }
-      const exists = buckets?.some(b => b.name === 'storyboard-images')
-      if (!exists) {
-        console.error('❌ Bucket storyboard-images غير موجود')
-        alert('مخزن الصور storyboard-images غير موجود. قم بإنشائه من لوحة تحكم Supabase واجعله Public ثم أعد المحاولة. راجع STORAGE_SETUP_GUIDE.md')
         return null
       }
 

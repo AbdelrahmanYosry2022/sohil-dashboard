@@ -1,8 +1,3 @@
 // Drawing API exports
-export {
-  drawingApi,
-  type DrawingFolder,
-  type DrawingScene,
-  type DrawingVersion,
-  type DrawingComment
-} from './drawingApi'
+export { drawingApi, type StoryboardFrame, type StoryboardFolders } from './drawingApi'
+export { drawingStorage } from './drawingStorage'

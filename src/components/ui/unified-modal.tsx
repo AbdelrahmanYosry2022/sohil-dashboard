@@ -61,7 +61,7 @@ export function UnifiedModal({
       case 'scene':
         return 'أدخل اسم المشهد'
       case 'storyboard':
-        return 'أدخل اسم الاستوري بورد'
+        return 'أدخل اسم الرسم'
       default:
         return 'أدخل الاسم'
     }
@@ -72,7 +72,7 @@ export function UnifiedModal({
       case 'scene':
         return 'وصف المشهد (اختياري)'
       case 'storyboard':
-        return 'وصف الاستوري بورد (اختياري)'
+        return 'وصف الرسم (اختياري)'
       default:
         return 'وصف (اختياري)'
     }
@@ -89,7 +89,7 @@ export function UnifiedModal({
         <div className="space-y-6">
           <div>
             <label className="text-sm font-medium mb-2 block">
-              {type === 'folder' ? 'اسم المجلد' : type === 'scene' ? 'اسم المشهد' : 'اسم الاستوري بورد'}
+              {type === 'folder' ? 'اسم المجلد' : type === 'scene' ? 'اسم المشهد' : 'اسم الرسم'}
             </label>
             <Input
               value={formData.name}
@@ -120,7 +120,7 @@ export function UnifiedModal({
             إلغاء
           </Button>
           <Button onClick={handleSubmit} disabled={!formData.name.trim()}>
-            {type === 'folder' ? 'إنشاء المجلد' : type === 'scene' ? 'إضافة المشهد' : 'إنشاء الاستوري بورد'}
+            {type === 'folder' ? 'إنشاء المجلد' : type === 'scene' ? 'إضافة المشهد' : 'إنشاء الرسم'}
           </Button>
         </DialogFooter>
       </DialogContent>

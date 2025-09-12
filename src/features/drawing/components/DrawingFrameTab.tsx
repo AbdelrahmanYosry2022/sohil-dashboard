@@ -25,7 +25,7 @@ import {
   Wallet,
   LayoutDashboard
 } from 'lucide-react'
-import { storyboardApi, storyboardStorage } from '../api'
+import { drawingApi, drawingStorage } from '../api'
 import { EpisodeDetailHeader } from '../../episodes/components/EpisodeDetailHeader'
 import { EpisodeSidebar } from '../../episodes/components/EpisodeSidebar'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog'
@@ -66,7 +66,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?
   { key: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
   { key: 'script', label: 'النص', icon: FileTextIcon },
   { key: 'audio', label: 'الصوت', icon: AudioLines },
-  { key: 'storyboard', label: 'الستوري بورد', icon: Layers },
+  { key: 'storyboard', label: 'الرسم', icon: Layers },
   { key: 'draw', label: 'الرسم', icon: PencilRuler },
   { key: 'animation', label: 'التحريك', icon: Clapperboard },
   { key: 'edit', label: 'المونتاج', icon: Scissors },
@@ -75,7 +75,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<{ className?
   { key: 'budget', label: 'الميزانية', icon: Wallet },
 ]
 
-export default function StoryboardFrameTab() {
+export default function DrawingFrameTab() {
   const { id: episodeId, frameId } = useParams<{ id: string; frameId: string }>()
   const navigate = useNavigate()
   
@@ -151,7 +151,7 @@ export default function StoryboardFrameTab() {
       
       try {
         setLoading(true)
-        const savedFrames = await storyboardApi.loadFrames(episodeId)
+        const savedFrames = await drawingApi.loadFrames(episodeId)
         if (savedFrames && savedFrames.length > 0) {
           const framesData = savedFrames as unknown as StoryboardFrame[]
           setFrames(framesData)
@@ -222,7 +222,7 @@ export default function StoryboardFrameTab() {
           setIsUploading(true)
           console.log('🔄 بدء رفع الصورة الجديدة...', formData.image.name)
           const fileName = `frame-${Date.now()}-${formData.image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-          const uploadedUrl = await storyboardStorage.uploadStoryboardImage(episodeId, fileName, formData.image)
+          const uploadedUrl = await drawingStorage.uploadFrameImage(episodeId, fileName, formData.image)
           
           if (uploadedUrl) {
             thumbnailUrl = uploadedUrl
@@ -259,7 +259,7 @@ export default function StoryboardFrameTab() {
       }
       
       // Persist changes to Supabase
-      await storyboardApi.saveFrames(episodeId, updatedFrames)
+      await drawingApi.saveFrames(episodeId, updatedFrames)
       
       // Reset form image
       setFormData({ ...formData, image: null })
@@ -303,7 +303,7 @@ export default function StoryboardFrameTab() {
       <div className="sticky top-0 z-50 bg-background border-b">
         <EpisodeDetailHeader
           title={frame.title}
-          description="تعديل إطار الستوري بورد"
+          description="تعديل إطار الرسم"
           onHome={() => navigate('/')}
           onEpisodes={() => navigate('/episodes')}
         />
@@ -499,7 +499,7 @@ export default function StoryboardFrameTab() {
                       <CardContent className="p-3">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden">
-                            <img src={version.thumbnail} alt={version.name} className="w-full h-full object-cover" />
+                            <img src={version.thumbnail || undefined} alt={version.name} className="w-full h-full object-cover" />
                           </div>
                           <div className="flex-1">
                             <div className="font-medium text-sm">{version.name}</div>
@@ -526,7 +526,7 @@ export default function StoryboardFrameTab() {
 
       {/* Edit Frame Modal */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>تعديل الإطار</DialogTitle>
           </DialogHeader>

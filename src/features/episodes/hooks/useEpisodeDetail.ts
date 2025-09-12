@@ -8,21 +8,19 @@ type TabKey =
   | 'script'
   | 'audio'
   | 'storyboard'
-  | 'draw'
   | 'animation'
   | 'edit'
   | 'final'
   | 'assets'
   | 'budget';
 
-import { LayoutDashboard, FileText, AudioLines, Layers, PencilRuler, Clapperboard, Scissors, Film, Folder, Wallet } from 'lucide-react';
+import { LayoutDashboard, FileText, AudioLines, PencilRuler, Clapperboard, Scissors, Film, Folder, Wallet } from 'lucide-react';
 
 export const TABS = [
   { key: 'overview' as const, label: 'نظرة عامة', icon: LayoutDashboard },
   { key: 'script' as const, label: 'النص', icon: FileText },
   { key: 'audio' as const, label: 'الصوت', icon: AudioLines },
-  { key: 'storyboard' as const, label: 'الستوري بورد', icon: Layers },
-  { key: 'draw' as const, label: 'الرسم', icon: PencilRuler },
+  { key: 'storyboard' as const, label: 'الرسم', icon: PencilRuler },
   { key: 'animation' as const, label: 'التحريك', icon: Clapperboard },
   { key: 'edit' as const, label: 'المونتاج', icon: Scissors },
   { key: 'final' as const, label: 'المشاهد النهائية', icon: Film },

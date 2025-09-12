@@ -5,7 +5,6 @@ import { EpisodeSidebar } from '../features/episodes/components/EpisodeSidebar'
 import { Episode } from '../lib/types'
 import TextTab from '../features/text/components/TextTab'
 import { AudioTab } from '../features/audio/components/AudioTab'
-import StoryboardTab from '../features/storyboard/components/StoryboardTab'
 import DrawingTab from '../features/drawing/components/DrawingTab'
 import AnimationTab from '../features/animation/components/AnimationTab'
 import EditingTab from '../features/editing/components/EditingTab'
@@ -104,8 +103,7 @@ export default function EpisodeDetail() {
             {activeTab === 'overview' && <OverviewSection episode={episode} statsData={statsData} loading={statsLoading} />}
             {activeTab === 'script' && <TextTab episodeId={episode.id} />}
             {activeTab === 'audio' && <AudioTab episodeId={episode.id} />}
-            {activeTab === 'storyboard' && <StoryboardTab episodeId={episode.id} />}
-            {activeTab === 'draw' && <DrawingTab />}
+            {activeTab === 'storyboard' && <DrawingTab episodeId={episode.id} />}
             {activeTab === 'animation' && <AnimationTab />}
             {activeTab === 'edit' && <EditingTab />}
             {(activeTab === 'final' || activeTab === 'assets' || activeTab === 'budget') && (
@@ -171,7 +169,7 @@ function OverviewSection({
     {
       title: 'عدد المشاهد',
       value: loading ? 'جاري التحميل...' : (statsData?.text?.scenes || 0),
-      hint: 'من النص والرسم والستوري بورد'
+  hint: 'من النص والرسم'
     },
     {
       title: 'المدة المتوقعة',
@@ -235,12 +233,12 @@ function OverviewSection({
                 details: `${statsData?.audio?.files || 0} ملف، ${formatTime(statsData?.audio?.totalDuration || 0)}`
               },
               {
-                label: 'الستوري بورد',
+                label: 'الرسم',
                 value: statsData?.storyboard?.frames > 0 ? Math.min(100, (statsData.storyboard.frames / 15) * 100) : 0,
                 details: `${statsData?.storyboard?.frames || 0} إطار، ${statsData?.storyboard?.scenes || 0} مشهد`
               },
               {
-                label: 'الرسم',
+                label: 'الرسم النهائي',
                 value: statsData?.drawing?.scenes > 0 ? Math.min(100, ((statsData.drawing.scenes - statsData.drawing.approved) / statsData.drawing.scenes) * 100) : 0,
                 details: `${statsData?.drawing?.scenes || 0} مشهد، ${statsData?.drawing?.comments || 0} تعليق`
               },
